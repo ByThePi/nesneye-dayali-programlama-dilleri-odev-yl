@@ -1,0 +1,187 @@
+@model HastaneRandevuSistemi.WebUI.Models.RandevuSayfaViewModel
+@using HastaneRandevuSistemi.Core.Enums
+@{
+    ViewData["Title"] = "Randevu Yönetimi ve Onay Sistemi";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="fw-bold mb-0">Randevu Oluşturma, Çakışma Kontrolü ve Onay Mekanizması</h3>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary btn-sm">Ana Panele Dön</a>
+</div>
+
+@if (TempData["BasariMesaji"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <strong>Başarılı!</strong> @TempData["BasariMesaji"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["HataMesaji"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>İş Kuralı / Doğrulama Uyarısı:</strong> @TempData["HataMesaji"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Yeni Randevu Oluşturma Formu -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0">Yeni Randevu Talebi Oluştur</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="Olustur" method="post">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Hasta Seçimi</label>
+                        <select name="HastaId" class="form-select" required>
+                            @foreach (var h in Model.Hastalar)
+                            {
+                                <option value="@h.Id">@h.TamAd (@(h.OzelSigortaVarMi ? "Özel Sigortalı" : "SGK"))</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Doktor Seçimi</label>
+                        <select name="DoktorId" class="form-select" required>
+                            @foreach (var d in Model.Doktorlar)
+                            {
+                                <option value="@d.Id">@d.Unvan @d.TamAd - @d.Departman?.DepartmanAdi (@d.HastaneSube?.SubeAdi)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Sağlık Hizmeti / İşlem</label>
+                        <select name="SaglikHizmetiId" class="form-select" required>
+                            @foreach (var s in Model.Hizmetler)
+                            {
+                                <option value="@s.Id">@s.HizmetAdi (@s.SureDakika dk - @s.TemelUcret.ToString("N0") ₺)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-7">
+                            <label class="form-label fw-semibold">Tarih</label>
+                            <input type="date" name="RandevuTarihi" class="form-control"
+                                   value="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" required />
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label fw-semibold">Başlangıç Saati</label>
+                            <input type="time" name="BaslangicSaati" class="form-control" value="10:30" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Hasta Şikayeti / Notu</label>
+                        <textarea name="HastaNotu" class="form-control" rows="2" placeholder="Şikayet veya işlem notu..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                        Çakışma Kontrolü Yap ve Randevu Oluştur
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mevcut Randevular ve Onay Mekanizması -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold">Kayıtlı Randevular ve Onay Süreci</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Tarih &amp; Saat</th>
+                                <th>Hasta</th>
+                                <th>Doktor &amp; Şube</th>
+                                <th>Hizmet &amp; Ücret</th>
+                                <th>Durum</th>
+                                <th>Onay / İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in Model.Randevular)
+                            {
+                                <tr>
+                                    <td>#@r.Id</td>
+                                    <td>
+                                        <span class="fw-semibold">@r.RandevuTarihi.ToString("dd.MM.yyyy")</span><br />
+                                        <small class="text-muted">@r.BaslangicSaati.ToString(@"hh\:mm") - @r.BitisSaati.ToString(@"hh\:mm") (@r.SureDakika dk)</small>
+                                    </td>
+                                    <td>@r.Hasta?.TamAd</td>
+                                    <td>
+                                        @r.Doktor?.Unvan @r.Doktor?.TamAd<br />
+                                        <small class="text-muted">@r.HastaneSube?.SubeAdi</small>
+                                    </td>
+                                    <td>
+                                        @r.SaglikHizmeti?.HizmetAdi<br />
+                                        <span class="fw-bold text-success">@r.ToplamUcret.ToString("N2") ₺</span>
+                                    </td>
+                                    <td>
+                                        @switch (r.Durum)
+                                        {
+                                            case RandevuDurumu.OnayBekliyor:
+                                                <span class="badge bg-warning text-dark">Onay Bekliyor</span>
+                                                break;
+                                            case RandevuDurumu.Onaylandi:
+                                                <span class="badge bg-success">Onaylandı</span>
+                                                break;
+                                            case RandevuDurumu.Reddedildi:
+                                                <span class="badge bg-danger">Reddedildi</span>
+                                                break;
+                                            case RandevuDurumu.IptalEdildi:
+                                                <span class="badge bg-secondary">İptal Edildi</span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-info">@r.Durum</span>
+                                                break;
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(r.OnayNotu))
+                                        {
+                                            <div class="small text-muted mt-1">@r.OnayNotu</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (r.Durum == RandevuDurumu.OnayBekliyor)
+                                        {
+                                            <form asp-action="Onayla" method="post" class="d-inline">
+                                                <input type="hidden" name="randevuId" value="@r.Id" />
+                                                <input type="hidden" name="onaylayanKullaniciId" value="@r.DoktorId" />
+                                                <input type="hidden" name="onayNotu" value="Doktor tarafından onaylandı." />
+                                                <button type="submit" class="btn btn-sm btn-success mb-1">Onayla</button>
+                                            </form>
+                                            <form asp-action="Reddet" method="post" class="d-inline">
+                                                <input type="hidden" name="randevuId" value="@r.Id" />
+                                                <input type="hidden" name="onaylayanKullaniciId" value="@r.DoktorId" />
+                                                <input type="hidden" name="redSebebi" value="Acil operasyon nedeniyle uygun değil." />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger mb-1">Reddet</button>
+                                            </form>
+                                        }
+                                        @if (r.Durum != RandevuDurumu.IptalEdildi && r.Durum != RandevuDurumu.Reddedildi)
+                                        {
+                                            <form asp-action="IptalEt" method="post" class="d-inline">
+                                                <input type="hidden" name="randevuId" value="@r.Id" />
+                                                <input type="hidden" name="iptalSebebi" value="Hasta talebiyle iptal edildi." />
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary mb-1">İptal</button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,201 @@
+@model HastaneRandevuSistemi.WebUI.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "Sistem Özeti ve OOP Mimari Paneli";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Hastane / Klinik Randevu Sistemi</h2>
+        <p class="text-muted mb-0">Çok Şubeli Sağlık Kuruluşu, Çalışan Uygunluk Takvimi ve Polimorfik Rol Yönetimi</p>
+    </div>
+    <a asp-controller="Randevu" asp-action="Index" class="btn btn-primary">
+        + Yeni Randevu Oluştur / Onay Ekranı
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Aktif Şube / Klinik</h6>
+                <h3 class="fw-bold text-primary mb-0">@Model.Subeler.Count</h3>
+                <small class="text-secondary">Çok şubeli yapı desteği</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Tanımlı Sağlık Hizmeti</h6>
+                <h3 class="fw-bold text-success mb-0">@Model.Hizmetler.Count</h3>
+                <small class="text-secondary">Süre ve dinamik ücret tanımlı</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Uzman Doktor Kadrosu</h6>
+                <h3 class="fw-bold text-info mb-0">@Model.Doktorlar.Count</h3>
+                <small class="text-secondary">Uygunluk takvimi tanımlı</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Toplam Randevu</h6>
+                <h3 class="fw-bold text-warning mb-0">@Model.Randevular.Count</h3>
+                <small class="text-secondary">Çakışma ve onay kontrollü</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 1. Hastane / Klinik Şubeleri, Bölümler ve Hizmetler -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold">1. Hastane / Klinik Şubeleri, Bölümler ve Sağlık Hizmetleri</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            @foreach (var sube in Model.Subeler)
+            {
+                <div class="col-md-6">
+                    <div class="border rounded p-3 h-100 bg-light">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="badge bg-primary mb-1">@sube.SaglikKurumu?.KurumAdi</span>
+                                <h5 class="fw-bold mb-0">@sube.SubeAdi</h5>
+                                <small class="text-muted">@sube.Adres (@sube.Ilce / @sube.Sehir)</small>
+                            </div>
+                            <span class="badge bg-dark">
+                                Mesai: @sube.AcilisSaati.ToString(@"hh\:mm") - @sube.KapanisSaati.ToString(@"hh\:mm")
+                            </span>
+                        </div>
+                        <hr />
+                        @foreach (var dep in sube.Departmanlar)
+                        {
+                            <div class="mb-3">
+                                <div class="fw-semibold text-primary">@dep.DepartmanAdi <small class="text-muted">(@dep.KatBilgisi)</small></div>
+                                <ul class="list-group list-group-flush mt-1">
+                                    @foreach (var hizmet in dep.Hizmetler)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0 py-1">
+                                            <span>@hizmet.HizmetAdi <span class="badge bg-secondary ms-1">@hizmet.SureDakika dk</span></span>
+                                            <span class="fw-bold text-success">@hizmet.TemelUcret.ToString("N2") ₺</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- 2. Doktorlar ve Uygunluk Zaman Dilimleri -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold">2. Doktor Kadrosu, Uzmanlık Alanları ve Uygunluk Zaman Dilimleri</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Doktor</th>
+                        <th>Şube / Poliklinik</th>
+                        <th>Uzmanlık Alanı</th>
+                        <th>Sunduğu Hizmetler</th>
+                        <th>Mesai &amp; Uygunluk Dilimi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dr in Model.Doktorlar)
+                    {
+                        var ornekUygunluk = dr.UygunlukTakvimi.FirstOrDefault();
+                        <tr>
+                            <td class="fw-semibold">@dr.Unvan @dr.TamAd <br /><small class="text-muted">@dr.SicilNo</small></td>
+                            <td>@dr.HastaneSube?.SubeAdi <br /><small class="text-primary">@dr.Departman?.DepartmanAdi</small></td>
+                            <td>@dr.UzmanlikAlani</td>
+                            <td>
+                                @foreach (var dh in dr.DoktorHizmetleri)
+                                {
+                                    <span class="badge bg-info text-dark me-1">@dh.SaglikHizmeti?.HizmetAdi (+@dh.OzelUcretFarki.ToString("N0") ₺)</span>
+                                }
+                            </td>
+                            <td>
+                                @if (ornekUygunluk != null)
+                                {
+                                    <span class="badge bg-success">
+                                        Hafta İçi: @ornekUygunluk.BaslangicSaati.ToString(@"hh\:mm") - @ornekUygunluk.BitisSaati.ToString(@"hh\:mm")
+                                    </span>
+                                    @if (ornekUygunluk.MolaBaslangic.HasValue)
+                                    {
+                                        <br />
+                                        <small class="text-muted">Mola: @ornekUygunluk.MolaBaslangic.Value.ToString(@"hh\:mm") - @ornekUygunluk.MolaBitis!.Value.ToString(@"hh\:mm")</small>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 3. OOP Kalıtım ve Çok Biçimlilik (Polymorphism) Kullanıcı Rolleri -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold">3. Kullanıcı Rolleri (Kalıtım &amp; Çok Biçimlilik / Polymorphism Gösterimi)</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Somut Sınıf (Concrete Type)</th>
+                        <th>Rol</th>
+                        <th>Polimorfik <code>KullaniciOzetiGetir()</code> Çıktısı</th>
+                        <th>Randevu Onay Yetkisi</th>
+                        <th>Kurum Tanım Yetkisi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var k in Model.Kullanicilar)
+                    {
+                        <tr>
+                            <td><code>@k.GetType().Name</code></td>
+                            <td><span class="badge bg-secondary">@k.Rol</span></td>
+                            <td>@k.KullaniciOzetiGetir()</td>
+                            <td>
+                                @if (k.RandevuOnaylayabilirMi())
+                                {
+                                    <span class="badge bg-success">Yetkili</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-muted border">Yetkisiz</span>
+                                }
+                            </td>
+                            <td>
+                                @if (k.KurumTanimlayabilirMi())
+                                {
+                                    <span class="badge bg-primary">Yetkili</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-muted border">Yetkisiz</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
