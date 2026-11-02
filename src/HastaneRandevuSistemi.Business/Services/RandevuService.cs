@@ -43,9 +43,15 @@ namespace HastaneRandevuSistemi.Business.Services
             var hizmet = await _context.SaglikHizmetleri.FirstOrDefaultAsync(s => s.Id == model.SaglikHizmetiId && s.AktifMi)
                 ?? throw new DomainException("Seçilen sağlık hizmeti bulunamadı.");
 
-            // 1. Doktor bu hizmeti sunuyor mu kontrolü
+            // 1. Doktor bu hizmeti sunuyor mu kontrolü (Bugfix: Uzmanlık dışı işlem seçimi engellendi)
             var doktorHizmet = doktor.DoktorHizmetleri.FirstOrDefault(dh => dh.SaglikHizmetiId == hizmet.Id && dh.AktifMi);
-            decimal ozelFark = doktorHizmet?.OzelUcretFarki ?? 0m;
+            if (doktorHizmet == null)
+            {
+                throw new DomainException(
+                    $"{doktor.Unvan} {doktor.TamAd} ({doktor.UzmanlikAlani}), '{hizmet.HizmetAdi}' işlemini uygulamamaktadır. Lütfen doktorun sunduğu bir sağlık hizmeti seçiniz.");
+            }
+
+            decimal ozelFark = doktorHizmet.OzelUcretFarki;
 
             TimeSpan talepBaslangic = model.BaslangicSaati;
             TimeSpan talepBitis = talepBaslangic.Add(TimeSpan.FromMinutes(hizmet.SureDakika));
@@ -116,8 +122,8 @@ namespace HastaneRandevuSistemi.Business.Services
             var randevu = await _context.Randevular.FirstOrDefaultAsync(r => r.Id == randevuId)
                 ?? throw new DomainException("Randevu bulunamadı.");
 
-            var onaylayan = await _context.Kullanicilar.FirstOrDefaultAsync(k => k.Id == onaylayanKullaniciId)
-                ?? throw new DomainException("Onaylayan kullanıcı bulunamadı.");
+            var onaylayan = await _context.Kullanicilar.FirstOrDefaultAsync(k => k.Id == onaylayanKullaniciId && k.AktifMi)
+                ?? throw new DomainException("Onaylayan yetkili kullanıcı bulunamadı.");
 
             randevu.Onayla(onaylayan, onayNotu);
             await _context.SaveChangesAsync();
@@ -128,8 +134,8 @@ namespace HastaneRandevuSistemi.Business.Services
             var randevu = await _context.Randevular.FirstOrDefaultAsync(r => r.Id == randevuId)
                 ?? throw new DomainException("Randevu bulunamadı.");
 
-            var onaylayan = await _context.Kullanicilar.FirstOrDefaultAsync(k => k.Id == onaylayanKullaniciId)
-                ?? throw new DomainException("İşlem yapan kullanıcı bulunamadı.");
+            var onaylayan = await _context.Kullanicilar.FirstOrDefaultAsync(k => k.Id == onaylayanKullaniciId && k.AktifMi)
+                ?? throw new DomainException("İşlem yapan yetkili kullanıcı bulunamadı.");
 
             randevu.Reddet(onaylayan, redSebebi);
             await _context.SaveChangesAsync();
