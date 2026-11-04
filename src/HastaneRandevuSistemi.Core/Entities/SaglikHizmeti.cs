@@ -1,6 +1,7 @@
 using HastaneRandevuSistemi.Core.Entities.Abstract;
 using HastaneRandevuSistemi.Core.Enums;
 using HastaneRandevuSistemi.Core.Exceptions;
+using HastaneRandevuSistemi.Core.Strategies;
 
 namespace HastaneRandevuSistemi.Core.Entities
 {
@@ -41,26 +42,20 @@ namespace HastaneRandevuSistemi.Core.Entities
         }
 
         /// <summary>
-        /// Çok biçimli (Polymorphic) ücret hesaplama metodu.
-        /// Özel sigortalı hastalara hizmet tipine göre indirim uygular.
+        /// Strategy Tasarım Deseni üzerinden çok biçimli (Polymorphic) ücret hesaplama metodu.
+        /// </summary>
+        public virtual decimal NetUcretHesapla(IUcretHesaplamaStratejisi strateji, decimal doktorOzelFarki = 0m)
+        {
+            return strateji.Hesapla(this, doktorOzelFarki);
+        }
+
+        /// <summary>
+        /// Sigorta durumuna göre uygun stratejiyi seçerek net ücreti hesaplar.
         /// </summary>
         public virtual decimal NetUcretHesapla(bool ozelSigortaVarMi, decimal doktorOzelFarki = 0m)
         {
-            decimal bazToplam = TemelUcret + doktorOzelFarki;
-            if (!ozelSigortaVarMi)
-            {
-                return bazToplam;
-            }
-
-            decimal indirimOrani = HizmetTipi switch
-            {
-                HizmetTipi.KontrolMuayenesi => 1.00m,
-                HizmetTipi.Laboratuvar => 0.40m,
-                HizmetTipi.Radyoloji => 0.35m,
-                _ => 0.25m
-            };
-
-            return Math.Round(bazToplam * (1 - indirimOrani), 2);
+            var strateji = UcretStratejiSecici.StratejiBelirle(ozelSigortaVarMi);
+            return NetUcretHesapla(strateji, doktorOzelFarki);
         }
     }
 }

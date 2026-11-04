@@ -18,6 +18,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+builder.Services.AddScoped<IRandevuRepository, RandevuRepository>();
+builder.Services.AddScoped<IDoktorRepository, DoktorRepository>();
+builder.Services.AddScoped<IHastaneSubeRepository, HastaneSubeRepository>();
+builder.Services.AddScoped<ISaglikHizmetiRepository, SaglikHizmetiRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IRandevuService, RandevuService>();
 builder.Services.AddScoped<IKurumYonetimService, KurumYonetimService>();
