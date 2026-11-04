@@ -39,6 +39,21 @@ namespace HastaneRandevuSistemi.Core.Entities
             int sureDakika,
             decimal toplamUcret)
         {
+            if (tarih.Date < DateTime.Today)
+            {
+                throw new DomainException("Geçmiş bir tarihe randevu oluşturulamaz.");
+            }
+
+            if (baslangicSaati < TimeSpan.Zero || baslangicSaati >= TimeSpan.FromHours(24))
+            {
+                throw new DomainException("Geçerli bir başlangıç saati seçilmelidir.");
+            }
+
+            if (tarih.Date == DateTime.Today && baslangicSaati < DateTime.Now.TimeOfDay)
+            {
+                throw new DomainException("Bugün için geçmiş bir saate randevu oluşturulamaz.");
+            }
+
             if (sureDakika <= 0)
             {
                 throw new DomainException("Randevu süresi 0'dan büyük olmalıdır.");
@@ -87,6 +102,11 @@ namespace HastaneRandevuSistemi.Core.Entities
                 throw new YetkisizIslemException($"{islemYapan.TamAd} ({islemYapan.Rol}) randevu onaylama yetkisine sahip değildir.");
             }
 
+            if (islemYapan is Doktor && islemYapan.Id != DoktorId)
+            {
+                throw new YetkisizIslemException("Bir doktor yalnızca kendisine ait randevuları onaylayabilir.");
+            }
+
             if (Durum != RandevuDurumu.OnayBekliyor)
             {
                 throw new DomainException("Yalnızca onay bekleyen randevular onaylanabilir.");
@@ -94,7 +114,9 @@ namespace HastaneRandevuSistemi.Core.Entities
 
             Durum = RandevuDurumu.Onaylandi;
             OnaylayanKullaniciId = islemYapan.Id;
-            OnayNotu = onayNotu;
+            OnayNotu = string.IsNullOrWhiteSpace(onayNotu)
+                ? $"{islemYapan.TamAd} ({islemYapan.Rol}) tarafından onaylandı."
+                : onayNotu.Trim();
             OnayTarihi = DateTime.UtcNow;
             GuncellemeTarihiniAyarla();
         }
@@ -106,6 +128,16 @@ namespace HastaneRandevuSistemi.Core.Entities
                 throw new YetkisizIslemException($"{islemYapan.TamAd} ({islemYapan.Rol}) randevu reddetme yetkisine sahip değildir.");
             }
 
+            if (islemYapan is Doktor && islemYapan.Id != DoktorId)
+            {
+                throw new YetkisizIslemException("Bir doktor yalnızca kendisine ait randevuları reddedebilir.");
+            }
+
+            if (Durum != RandevuDurumu.OnayBekliyor)
+            {
+                throw new DomainException("Yalnızca onay bekleyen randevular reddedilebilir.");
+            }
+
             if (string.IsNullOrWhiteSpace(redSebebi))
             {
                 throw new DomainException("Randevu reddedilirken açıklama girilmesi zorunludur.");
@@ -113,7 +145,7 @@ namespace HastaneRandevuSistemi.Core.Entities
 
             Durum = RandevuDurumu.Reddedildi;
             OnaylayanKullaniciId = islemYapan.Id;
-            OnayNotu = redSebebi;
+            OnayNotu = $"{islemYapan.TamAd}: {redSebebi.Trim()}";
             OnayTarihi = DateTime.UtcNow;
             GuncellemeTarihiniAyarla();
         }
@@ -125,8 +157,15 @@ namespace HastaneRandevuSistemi.Core.Entities
                 throw new DomainException("Tamamlanmış bir randevu iptal edilemez.");
             }
 
+            if (Durum == RandevuDurumu.IptalEdildi || Durum == RandevuDurumu.Reddedildi)
+            {
+                throw new DomainException("Randevu zaten iptal edilmiş veya reddedilmiş durumda.");
+            }
+
             Durum = RandevuDurumu.IptalEdildi;
-            OnayNotu = iptalSebebi;
+            OnayNotu = string.IsNullOrWhiteSpace(iptalSebebi)
+                ? "Hasta talebiyle iptal edildi."
+                : iptalSebebi.Trim();
             GuncellemeTarihiniAyarla();
         }
     }
