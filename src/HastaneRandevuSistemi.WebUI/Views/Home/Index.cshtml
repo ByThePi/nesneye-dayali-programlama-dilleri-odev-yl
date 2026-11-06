@@ -8,9 +8,14 @@
         <h2 class="fw-bold mb-1">Hastane / Klinik Randevu Sistemi</h2>
         <p class="text-muted mb-0">Çok Şubeli Sağlık Kuruluşu, Çalışan Uygunluk Takvimi ve Polimorfik Rol Yönetimi</p>
     </div>
-    <a asp-controller="Randevu" asp-action="Index" class="btn btn-primary">
-        + Yeni Randevu Oluştur / Onay Ekranı
-    </a>
+    <div class="d-flex gap-2">
+        <a asp-controller="KurumYonetim" asp-action="Index" class="btn btn-outline-primary">
+            Kurum / Hizmet / Doktor Tanımla
+        </a>
+        <a asp-controller="Randevu" asp-action="Index" class="btn btn-primary">
+            + Yeni Randevu Oluştur / Onay Ekranı
+        </a>
+    </div>
 </div>
 
 <div class="row g-3 mb-4">
