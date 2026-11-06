@@ -20,4 +20,14 @@ namespace HastaneRandevuSistemi.WebUI.Models
         public IReadOnlyList<SaglikHizmeti> Hizmetler { get; set; } = new List<SaglikHizmeti>();
         public IReadOnlyList<Kullanici> OnayYetkilileri { get; set; } = new List<Kullanici>();
     }
+
+    public class KurumYonetimSayfaViewModel
+    {
+        public IReadOnlyList<SaglikKurumu> Kurumlar { get; set; } = new List<SaglikKurumu>();
+        public IReadOnlyList<HastaneSube> Subeler { get; set; } = new List<HastaneSube>();
+        public IReadOnlyList<Departman> Departmanlar { get; set; } = new List<Departman>();
+        public IReadOnlyList<SaglikHizmeti> Hizmetler { get; set; } = new List<SaglikHizmeti>();
+        public IReadOnlyList<Doktor> Doktorlar { get; set; } = new List<Doktor>();
+        public IReadOnlyList<Kullanici> Kullanicilar { get; set; } = new List<Kullanici>();
+    }
 }
