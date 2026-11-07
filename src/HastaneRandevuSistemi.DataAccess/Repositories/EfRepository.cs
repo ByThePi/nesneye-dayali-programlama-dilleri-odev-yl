@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using HastaneRandevuSistemi.Core.Entities;
 using HastaneRandevuSistemi.Core.Entities.Abstract;
 using HastaneRandevuSistemi.Core.Interfaces;
 using HastaneRandevuSistemi.DataAccess.Context;
@@ -64,15 +65,113 @@ namespace HastaneRandevuSistemi.DataAccess.Repositories
         }
     }
 
+    public class RandevuRepository : EfRepository<Randevu>, IRandevuRepository
+    {
+        public RandevuRepository(AppDbContext context) : base(context)
+        {
+        }
+
+        public async Task<IReadOnlyList<Randevu>> TumRandevulariDetayliGetirAsync()
+        {
+            return await _dbSet
+                .Include(r => r.Hasta)
+                .Include(r => r.Doktor)
+                .Include(r => r.SaglikHizmeti)
+                .Include(r => r.HastaneSube)
+                .OrderByDescending(r => r.RandevuTarihi)
+                .ThenBy(r => r.BaslangicSaati)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<Randevu>> GunlukAktifRandevulariGetirAsync(DateTime tarih)
+        {
+            DateTime hedefTarih = tarih.Date;
+            return await _dbSet
+                .Where(r => r.RandevuTarihi.Date == hedefTarih && r.AktifMi)
+                .ToListAsync();
+        }
+    }
+
+    public class DoktorRepository : EfRepository<Doktor>, IDoktorRepository
+    {
+        public DoktorRepository(AppDbContext context) : base(context)
+        {
+        }
+
+        public async Task<IReadOnlyList<Doktor>> DoktorlariDetayliGetirAsync()
+        {
+            return await _dbSet
+                .Include(d => d.HastaneSube)
+                .Include(d => d.Departman)
+                .Include(d => d.UygunlukTakvimi)
+                .Include(d => d.DoktorHizmetleri)
+                    .ThenInclude(dh => dh.SaglikHizmeti)
+                .Where(d => d.AktifMi)
+                .ToListAsync();
+        }
+
+        public async Task<Doktor?> DoktorDetayliGetirAsync(int doktorId)
+        {
+            return await _dbSet
+                .Include(d => d.HastaneSube)
+                .Include(d => d.UygunlukTakvimi)
+                .Include(d => d.DoktorHizmetleri)
+                .FirstOrDefaultAsync(d => d.Id == doktorId && d.AktifMi);
+        }
+    }
+
+    public class HastaneSubeRepository : EfRepository<HastaneSube>, IHastaneSubeRepository
+    {
+        public HastaneSubeRepository(AppDbContext context) : base(context)
+        {
+        }
+
+        public async Task<IReadOnlyList<HastaneSube>> SubeleriDetayliGetirAsync()
+        {
+            return await _dbSet
+                .Include(s => s.SaglikKurumu)
+                .Include(s => s.Departmanlar)
+                    .ThenInclude(d => d.Hizmetler)
+                .Where(s => s.AktifMi)
+                .ToListAsync();
+        }
+    }
+
+    public class SaglikHizmetiRepository : EfRepository<SaglikHizmeti>, ISaglikHizmetiRepository
+    {
+        public SaglikHizmetiRepository(AppDbContext context) : base(context)
+        {
+        }
+
+        public async Task<IReadOnlyList<SaglikHizmeti>> HizmetleriDetayliGetirAsync()
+        {
+            return await _dbSet
+                .Include(h => h.Departman)
+                    .ThenInclude(d => d!.HastaneSube)
+                .Where(h => h.AktifMi)
+                .ToListAsync();
+        }
+    }
+
     public class UnitOfWork : IUnitOfWork
     {
         private readonly AppDbContext _context;
         private readonly Dictionary<Type, object> _repositories = new();
 
+        private IRandevuRepository? _randevular;
+        private IDoktorRepository? _doktorlar;
+        private IHastaneSubeRepository? _hastaneSubeleri;
+        private ISaglikHizmetiRepository? _saglikHizmetleri;
+
         public UnitOfWork(AppDbContext context)
         {
             _context = context;
         }
+
+        public IRandevuRepository Randevular => _randevular ??= new RandevuRepository(_context);
+        public IDoktorRepository Doktorlar => _doktorlar ??= new DoktorRepository(_context);
+        public IHastaneSubeRepository HastaneSubeleri => _hastaneSubeleri ??= new HastaneSubeRepository(_context);
+        public ISaglikHizmetiRepository SaglikHizmetleri => _saglikHizmetleri ??= new SaglikHizmetiRepository(_context);
 
         public IRepository<T> Repository<T>() where T : BaseEntity
         {

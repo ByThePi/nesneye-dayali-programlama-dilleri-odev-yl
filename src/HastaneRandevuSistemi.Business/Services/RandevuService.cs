@@ -1,49 +1,49 @@
 using HastaneRandevuSistemi.Business.DTOs;
 using HastaneRandevuSistemi.Business.Interfaces;
 using HastaneRandevuSistemi.Core.Entities;
+using HastaneRandevuSistemi.Core.Entities.Abstract;
 using HastaneRandevuSistemi.Core.Exceptions;
-using HastaneRandevuSistemi.DataAccess.Context;
-using Microsoft.EntityFrameworkCore;
+using HastaneRandevuSistemi.Core.Interfaces;
+using HastaneRandevuSistemi.Core.Strategies;
 
 namespace HastaneRandevuSistemi.Business.Services
 {
+    /// <summary>
+    /// Dependency Inversion Prensibi (DIP) gereği doğrudan AppDbContext yerine
+    /// yalnızca IUnitOfWork ve Repository soyutlamaları üzerinden çalışan randevu iş servisi.
+    /// </summary>
     public class RandevuService : IRandevuService
     {
-        private readonly AppDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public RandevuService(AppDbContext context)
+        public RandevuService(IUnitOfWork unitOfWork)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<IReadOnlyList<Randevu>> TumRandevulariGetirAsync()
         {
-            return await _context.Randevular
-                .Include(r => r.Hasta)
-                .Include(r => r.Doktor)
-                .Include(r => r.SaglikHizmeti)
-                .Include(r => r.HastaneSube)
-                .OrderByDescending(r => r.RandevuTarihi)
-                .ThenBy(r => r.BaslangicSaati)
-                .ToListAsync();
+            return await _unitOfWork.Randevular.TumRandevulariDetayliGetirAsync();
         }
 
         public async Task<Randevu> RandevuOlusturAsync(RandevuOlusturDto model)
         {
-            var hasta = await _context.Hastalar.FirstOrDefaultAsync(h => h.Id == model.HastaId && h.AktifMi)
-                ?? throw new DomainException("Seçilen hasta sistemde bulunamadı.");
+            var hasta = await _unitOfWork.Repository<Hasta>().GetByIdAsync(model.HastaId);
+            if (hasta == null || !hasta.AktifMi)
+            {
+                throw new DomainException("Seçilen hasta sistemde bulunamadı.");
+            }
 
-            var doktor = await _context.Doktorlar
-                .Include(d => d.HastaneSube)
-                .Include(d => d.UygunlukTakvimi)
-                .Include(d => d.DoktorHizmetleri)
-                .FirstOrDefaultAsync(d => d.Id == model.DoktorId && d.AktifMi)
+            var doktor = await _unitOfWork.Doktorlar.DoktorDetayliGetirAsync(model.DoktorId)
                 ?? throw new DomainException("Seçilen doktor sistemde bulunamadı.");
 
-            var hizmet = await _context.SaglikHizmetleri.FirstOrDefaultAsync(s => s.Id == model.SaglikHizmetiId && s.AktifMi)
-                ?? throw new DomainException("Seçilen sağlık hizmeti bulunamadı.");
+            var hizmet = await _unitOfWork.SaglikHizmetleri.GetByIdAsync(model.SaglikHizmetiId);
+            if (hizmet == null || !hizmet.AktifMi)
+            {
+                throw new DomainException("Seçilen sağlık hizmeti bulunamadı.");
+            }
 
-            // 1. Doktor bu hizmeti sunuyor mu kontrolü (Bugfix: Uzmanlık dışı işlem seçimi engellendi)
+            // 1. Doktor bu hizmeti sunuyor mu kontrolü
             var doktorHizmet = doktor.DoktorHizmetleri.FirstOrDefault(dh => dh.SaglikHizmetiId == hizmet.Id && dh.AktifMi);
             if (doktorHizmet == null)
             {
@@ -74,9 +74,7 @@ namespace HastaneRandevuSistemi.Business.Services
             }
 
             // 4. Randevu Çakışma Kontrolü (Doktor veya Hasta için aynı saatte başka randevu var mı?)
-            var ayniGundekiRandevular = await _context.Randevular
-                .Where(r => r.RandevuTarihi.Date == model.RandevuTarihi.Date && r.AktifMi)
-                .ToListAsync();
+            var ayniGundekiRandevular = await _unitOfWork.Randevular.GunlukAktifRandevulariGetirAsync(model.RandevuTarihi);
 
             var doktorCakisma = ayniGundekiRandevular
                 .FirstOrDefault(r => r.DoktorId == doktor.Id && r.ZamanCakisiyorMu(model.RandevuTarihi, talepBaslangic, talepBitis));
@@ -97,8 +95,9 @@ namespace HastaneRandevuSistemi.Business.Services
                     $"Hastanın {model.RandevuTarihi:dd.MM.yyyy} tarihinde {hastaCakisma.BaslangicSaati:hh\\:mm}-{hastaCakisma.BitisSaati:hh\\:mm} saatleri arasında çakışan başka bir randevusu bulunmaktadır.");
             }
 
-            // 5. Çok biçimli (Polymorphic) ücret hesaplama ve randevu oluşturma
-            decimal netUcret = hizmet.NetUcretHesapla(hasta.OzelSigortaVarMi, ozelFark);
+            // 5. Strategy Tasarım Deseni ile çok biçimli (Polymorphic) ücret hesaplama ve randevu oluşturma
+            IUcretHesaplamaStratejisi ucretStratejisi = UcretStratejiSecici.StratejiBelirle(hasta.OzelSigortaVarMi);
+            decimal netUcret = hizmet.NetUcretHesapla(ucretStratejisi, ozelFark);
 
             var yeniRandevu = new Randevu
             {
@@ -111,43 +110,68 @@ namespace HastaneRandevuSistemi.Business.Services
 
             yeniRandevu.RandevuPlanla(model.RandevuTarihi, talepBaslangic, hizmet.SureDakika, netUcret);
 
-            _context.Randevular.Add(yeniRandevu);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.Randevular.AddAsync(yeniRandevu);
+            await _unitOfWork.SaveChangesAsync();
 
             return yeniRandevu;
         }
 
         public async Task RandevuOnaylaAsync(int randevuId, int onaylayanKullaniciId, string? onayNotu)
         {
-            var randevu = await _context.Randevular.FirstOrDefaultAsync(r => r.Id == randevuId)
+            var randevu = await _unitOfWork.Randevular.GetByIdAsync(randevuId)
                 ?? throw new DomainException("Randevu bulunamadı.");
 
-            var onaylayan = await _context.Kullanicilar.FirstOrDefaultAsync(k => k.Id == onaylayanKullaniciId && k.AktifMi)
-                ?? throw new DomainException("Onaylayan yetkili kullanıcı bulunamadı.");
+            var onaylayan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(onaylayanKullaniciId);
+            if (onaylayan == null || !onaylayan.AktifMi)
+            {
+                throw new DomainException("Onaylayan yetkili kullanıcı bulunamadı.");
+            }
 
             randevu.Onayla(onaylayan, onayNotu);
-            await _context.SaveChangesAsync();
+            _unitOfWork.Randevular.Update(randevu);
+            await _unitOfWork.SaveChangesAsync();
         }
 
         public async Task RandevuReddetAsync(int randevuId, int onaylayanKullaniciId, string redSebebi)
         {
-            var randevu = await _context.Randevular.FirstOrDefaultAsync(r => r.Id == randevuId)
+            var randevu = await _unitOfWork.Randevular.GetByIdAsync(randevuId)
                 ?? throw new DomainException("Randevu bulunamadı.");
 
-            var onaylayan = await _context.Kullanicilar.FirstOrDefaultAsync(k => k.Id == onaylayanKullaniciId && k.AktifMi)
-                ?? throw new DomainException("İşlem yapan yetkili kullanıcı bulunamadı.");
+            var onaylayan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(onaylayanKullaniciId);
+            if (onaylayan == null || !onaylayan.AktifMi)
+            {
+                throw new DomainException("İşlem yapan yetkili kullanıcı bulunamadı.");
+            }
 
             randevu.Reddet(onaylayan, redSebebi);
-            await _context.SaveChangesAsync();
+            _unitOfWork.Randevular.Update(randevu);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task RandevuTamamlaAsync(int randevuId, int onaylayanKullaniciId, string? muayeneSonucNotu)
+        {
+            var randevu = await _unitOfWork.Randevular.GetByIdAsync(randevuId)
+                ?? throw new DomainException("Randevu bulunamadı.");
+
+            var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(onaylayanKullaniciId);
+            if (islemYapan == null || !islemYapan.AktifMi)
+            {
+                throw new DomainException("İşlem yapan yetkili kullanıcı bulunamadı.");
+            }
+
+            randevu.Tamamla(islemYapan, muayeneSonucNotu);
+            _unitOfWork.Randevular.Update(randevu);
+            await _unitOfWork.SaveChangesAsync();
         }
 
         public async Task RandevuIptalEtAsync(int randevuId, string iptalSebebi)
         {
-            var randevu = await _context.Randevular.FirstOrDefaultAsync(r => r.Id == randevuId)
+            var randevu = await _unitOfWork.Randevular.GetByIdAsync(randevuId)
                 ?? throw new DomainException("Randevu bulunamadı.");
 
             randevu.IptalEt(iptalSebebi);
-            await _context.SaveChangesAsync();
+            _unitOfWork.Randevular.Update(randevu);
+            await _unitOfWork.SaveChangesAsync();
         }
     }
 }
