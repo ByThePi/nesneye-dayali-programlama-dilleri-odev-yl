@@ -150,6 +150,34 @@ namespace HastaneRandevuSistemi.Core.Entities
             GuncellemeTarihiniAyarla();
         }
 
+        /// <summary>
+        /// Onaylanmış bir randevuyu muayene/işlem sonrasında tamamlandı durumuna geçirir.
+        /// </summary>
+        public void Tamamla(Kullanici islemYapan, string? muayeneSonucNotu = null)
+        {
+            if (!islemYapan.RandevuOnaylayabilirMi())
+            {
+                throw new YetkisizIslemException($"{islemYapan.TamAd} ({islemYapan.Rol}) randevu tamamlama yetkisine sahip değildir.");
+            }
+
+            if (islemYapan is Doktor && islemYapan.Id != DoktorId)
+            {
+                throw new YetkisizIslemException("Bir doktor yalnızca kendisine ait randevunun muayenesini tamamlayabilir.");
+            }
+
+            if (Durum != RandevuDurumu.Onaylandi)
+            {
+                throw new DomainException("Yalnızca onaylanmış durumdaki randevular tamamlandı olarak işaretlenebilir.");
+            }
+
+            Durum = RandevuDurumu.Tamamlandi;
+            OnaylayanKullaniciId = islemYapan.Id;
+            OnayNotu = string.IsNullOrWhiteSpace(muayeneSonucNotu)
+                ? $"Muayene/işlem {islemYapan.TamAd} tarafından tamamlandı."
+                : $"Muayene Sonucu ({islemYapan.TamAd}): {muayeneSonucNotu.Trim()}";
+            GuncellemeTarihiniAyarla();
+        }
+
         public void IptalEt(string iptalSebebi)
         {
             if (Durum == RandevuDurumu.Tamamlandi)

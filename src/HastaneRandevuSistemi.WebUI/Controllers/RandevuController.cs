@@ -87,6 +87,23 @@ namespace HastaneRandevuSistemi.WebUI.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Tamamla(int randevuId, int onaylayanKullaniciId, string? muayeneSonucNotu)
+        {
+            try
+            {
+                await _randevuService.RandevuTamamlaAsync(randevuId, onaylayanKullaniciId, muayeneSonucNotu);
+                TempData["BasariMesaji"] = $"Randevu (#{randevuId}) muayenesi başarıyla tamamlandı olarak işaretlendi.";
+            }
+            catch (DomainException ex)
+            {
+                TempData["HataMesaji"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> IptalEt(int randevuId, string iptalSebebi)
         {
             try

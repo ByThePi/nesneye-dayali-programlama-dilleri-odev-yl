@@ -148,6 +148,17 @@ namespace HastaneRandevuSistemi.Business.Services
             var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(model.DepartmanId)
                 ?? throw new DomainException("Seçilen bölüm/departman bulunamadı.");
 
+            if (model.SaglikHizmetiId > 0)
+            {
+                var secilenHizmet = await _unitOfWork.SaglikHizmetleri.GetByIdAsync(model.SaglikHizmetiId)
+                    ?? throw new DomainException("Seçilen sağlık hizmeti bulunamadı.");
+
+                if (secilenHizmet.DepartmanId != departman.Id)
+                {
+                    throw new DomainException("Seçilen sağlık hizmeti, doktorun görev yapacağı bölüme ait olmalıdır.");
+                }
+            }
+
             var yeniDoktor = new Doktor
             {
                 Ad = model.Ad.Trim(),
@@ -197,6 +208,121 @@ namespace HastaneRandevuSistemi.Business.Services
 
             await _unitOfWork.SaveChangesAsync();
             return yeniDoktor;
+        }
+
+        public async Task<DoktorHizmet> DoktoraHizmetTanimlaAsync(DoktorHizmetEslestirDto model)
+        {
+            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
+
+            var doktor = await _unitOfWork.Doktorlar.DoktorDetayliGetirAsync(model.DoktorId)
+                ?? throw new DomainException("Seçilen doktor bulunamadı.");
+
+            var hizmet = await _unitOfWork.SaglikHizmetleri.GetByIdAsync(model.SaglikHizmetiId)
+                ?? throw new DomainException("Seçilen sağlık hizmeti bulunamadı.");
+
+            if (hizmet.DepartmanId != doktor.DepartmanId)
+            {
+                throw new DomainException(
+                    $"'{hizmet.HizmetAdi}' hizmeti, {doktor.Unvan} {doktor.TamAd}'ın görev yaptığı bölüme ait değildir.");
+            }
+
+            var mevcutEslesme = doktor.DoktorHizmetleri.FirstOrDefault(dh => dh.SaglikHizmetiId == hizmet.Id && dh.AktifMi);
+            if (mevcutEslesme != null)
+            {
+                mevcutEslesme.OzelUcretFarki = Math.Max(0, model.OzelUcretFarki);
+                _unitOfWork.Repository<DoktorHizmet>().Update(mevcutEslesme);
+                await _unitOfWork.SaveChangesAsync();
+                return mevcutEslesme;
+            }
+
+            var yeniEslesme = new DoktorHizmet
+            {
+                DoktorId = doktor.Id,
+                SaglikHizmetiId = hizmet.Id,
+                OzelUcretFarki = Math.Max(0, model.OzelUcretFarki)
+            };
+
+            await _unitOfWork.Repository<DoktorHizmet>().AddAsync(yeniEslesme);
+            await _unitOfWork.SaveChangesAsync();
+
+            return yeniEslesme;
+        }
+
+        public async Task<SaglikPersoneli> SaglikPersoneliKaydetAsync(SaglikPersoneliKayitDto model)
+        {
+            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
+
+            if (string.IsNullOrWhiteSpace(model.Ad) || string.IsNullOrWhiteSpace(model.Soyad))
+            {
+                throw new DomainException("Sağlık personeli ad ve soyad bilgileri zorunludur.");
+            }
+
+            if (string.IsNullOrWhiteSpace(model.GorevAlani))
+            {
+                throw new DomainException("Sağlık personeli görev alanı belirtilmelidir.");
+            }
+
+            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(model.DepartmanId)
+                ?? throw new DomainException("Seçilen bölüm/departman bulunamadı.");
+
+            var yeniPersonel = new SaglikPersoneli
+            {
+                Ad = model.Ad.Trim(),
+                Soyad = model.Soyad.Trim(),
+                Email = model.Email.Trim(),
+                Telefon = model.Telefon.Trim(),
+                SifreHash = "DemoHash_YeniPersonel",
+                Unvan = model.Unvan.Trim(),
+                GorevAlani = model.GorevAlani.Trim(),
+                VardiyaBilgisi = model.VardiyaBilgisi.Trim(),
+                SicilNo = model.SicilNo.Trim(),
+                HastaneSubeId = departman.HastaneSubeId,
+                DepartmanId = departman.Id
+            };
+
+            await _unitOfWork.Repository<SaglikPersoneli>().AddAsync(yeniPersonel);
+            await _unitOfWork.SaveChangesAsync();
+
+            return yeniPersonel;
+        }
+
+        public async Task<Hasta> HastaKaydetAsync(HastaKayitDto model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Ad) || string.IsNullOrWhiteSpace(model.Soyad))
+            {
+                throw new DomainException("Hasta ad ve soyad bilgileri zorunludur.");
+            }
+
+            if (string.IsNullOrWhiteSpace(model.TcKimlikNo) || model.TcKimlikNo.Trim().Length != 11)
+            {
+                throw new DomainException("TC Kimlik Numarası 11 haneli olmalıdır.");
+            }
+
+            var mevcutHastalar = await _unitOfWork.Repository<Hasta>().GetAllAsync(
+                h => h.TcKimlikNo == model.TcKimlikNo.Trim() && h.AktifMi);
+
+            if (mevcutHastalar.Any())
+            {
+                throw new DomainException("Bu TC Kimlik Numarası ile kayıtlı bir hasta zaten bulunmaktadır.");
+            }
+
+            var yeniHasta = new Hasta
+            {
+                Ad = model.Ad.Trim(),
+                Soyad = model.Soyad.Trim(),
+                TcKimlikNo = model.TcKimlikNo.Trim(),
+                DogumTarihi = model.DogumTarihi.Date,
+                KanGrubu = model.KanGrubu.Trim(),
+                Email = model.Email.Trim(),
+                Telefon = model.Telefon.Trim(),
+                SifreHash = "DemoHash_YeniHasta",
+                OzelSigortaVarMi = model.OzelSigortaVarMi
+            };
+
+            await _unitOfWork.Repository<Hasta>().AddAsync(yeniHasta);
+            await _unitOfWork.SaveChangesAsync();
+
+            return yeniHasta;
         }
 
         public async Task<CalisanUygunluk> DoktorUygunlukTanimlaAsync(CalisanUygunlukTanimlaDto model)

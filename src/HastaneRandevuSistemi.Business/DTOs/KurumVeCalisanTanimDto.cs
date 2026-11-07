@@ -52,6 +52,40 @@ namespace HastaneRandevuSistemi.Business.DTOs
         public decimal OzelUcretFarki { get; set; }
     }
 
+    public class DoktorHizmetEslestirDto
+    {
+        public int IslemYapanKullaniciId { get; set; }
+        public int DoktorId { get; set; }
+        public int SaglikHizmetiId { get; set; }
+        public decimal OzelUcretFarki { get; set; }
+    }
+
+    public class SaglikPersoneliKayitDto
+    {
+        public int IslemYapanKullaniciId { get; set; }
+        public string Ad { get; set; } = string.Empty;
+        public string Soyad { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Telefon { get; set; } = string.Empty;
+        public string Unvan { get; set; } = "Hemşire";
+        public string GorevAlani { get; set; } = string.Empty;
+        public string VardiyaBilgisi { get; set; } = "08:00 - 17:00 (Gündüz)";
+        public string SicilNo { get; set; } = string.Empty;
+        public int DepartmanId { get; set; }
+    }
+
+    public class HastaKayitDto
+    {
+        public string Ad { get; set; } = string.Empty;
+        public string Soyad { get; set; } = string.Empty;
+        public string TcKimlikNo { get; set; } = string.Empty;
+        public DateTime DogumTarihi { get; set; } = new DateTime(1990, 1, 1);
+        public string KanGrubu { get; set; } = "A Rh+";
+        public string Email { get; set; } = string.Empty;
+        public string Telefon { get; set; } = string.Empty;
+        public bool OzelSigortaVarMi { get; set; }
+    }
+
     public class CalisanUygunlukTanimlaDto
     {
         public int IslemYapanKullaniciId { get; set; }

@@ -10,6 +10,7 @@ namespace HastaneRandevuSistemi.Business.Interfaces
         Task<Randevu> RandevuOlusturAsync(RandevuOlusturDto model);
         Task RandevuOnaylaAsync(int randevuId, int onaylayanKullaniciId, string? onayNotu);
         Task RandevuReddetAsync(int randevuId, int onaylayanKullaniciId, string redSebebi);
+        Task RandevuTamamlaAsync(int randevuId, int onaylayanKullaniciId, string? muayeneSonucNotu);
         Task RandevuIptalEtAsync(int randevuId, string iptalSebebi);
     }
 
@@ -27,6 +28,9 @@ namespace HastaneRandevuSistemi.Business.Interfaces
         Task<Departman> DepartmanOlusturAsync(DepartmanOlusturDto model);
         Task<SaglikHizmeti> SaglikHizmetiOlusturAsync(SaglikHizmetiOlusturDto model);
         Task<Doktor> DoktorKaydetAsync(DoktorKayitDto model);
+        Task<DoktorHizmet> DoktoraHizmetTanimlaAsync(DoktorHizmetEslestirDto model);
+        Task<SaglikPersoneli> SaglikPersoneliKaydetAsync(SaglikPersoneliKayitDto model);
+        Task<Hasta> HastaKaydetAsync(HastaKayitDto model);
         Task<CalisanUygunluk> DoktorUygunlukTanimlaAsync(CalisanUygunlukTanimlaDto model);
     }
 }
