@@ -111,7 +111,7 @@
                                 <th>Doktor &amp; Şube</th>
                                 <th>Hizmet &amp; Ücret</th>
                                 <th>Durum</th>
-                                <th style="min-width: 240px;">Onay / İşlem</th>
+                                <th style="min-width: 245px;">Onay / Muayene / İşlem</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -140,6 +140,9 @@
                                                 break;
                                             case RandevuDurumu.Onaylandi:
                                                 <span class="badge bg-success">Onaylandı</span>
+                                                break;
+                                            case RandevuDurumu.Tamamlandi:
+                                                <span class="badge bg-primary">Muayene Tamamlandı</span>
                                                 break;
                                             case RandevuDurumu.Reddedildi:
                                                 <span class="badge bg-danger">Reddedildi</span>
@@ -190,7 +193,19 @@
                                                 </form>
                                             </div>
                                         }
-                                        @if (r.Durum != RandevuDurumu.IptalEdildi && r.Durum != RandevuDurumu.Reddedildi)
+                                        @if (r.Durum == RandevuDurumu.Onaylandi)
+                                        {
+                                            <div class="border rounded p-2 bg-light mb-1">
+                                                <form asp-action="Tamamla" method="post">
+                                                    <input type="hidden" name="randevuId" value="@r.Id" />
+                                                    <input type="hidden" name="onaylayanKullaniciId" value="@r.DoktorId" />
+                                                    <input type="text" name="muayeneSonucNotu" class="form-control form-control-sm mb-1"
+                                                           placeholder="Muayene / işlem sonucu..." />
+                                                    <button type="submit" class="btn btn-sm btn-primary w-100">Muayeneyi Tamamla</button>
+                                                </form>
+                                            </div>
+                                        }
+                                        @if (r.Durum != RandevuDurumu.IptalEdildi && r.Durum != RandevuDurumu.Reddedildi && r.Durum != RandevuDurumu.Tamamlandi)
                                         {
                                             <form asp-action="IptalEt" method="post" class="d-inline">
                                                 <input type="hidden" name="randevuId" value="@r.Id" />

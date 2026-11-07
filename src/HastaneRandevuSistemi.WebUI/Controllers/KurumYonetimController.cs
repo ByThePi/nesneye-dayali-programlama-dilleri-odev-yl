@@ -101,6 +101,57 @@ namespace HastaneRandevuSistemi.WebUI.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DoktoraHizmetEkle(DoktorHizmetEslestirDto model)
+        {
+            try
+            {
+                await _kurumService.DoktoraHizmetTanimlaAsync(model);
+                TempData["BasariMesaji"] = "Doktora yeni sağlık hizmeti ve özel ücret farkı başarıyla tanımlandı.";
+            }
+            catch (DomainException ex)
+            {
+                TempData["HataMesaji"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaglikPersoneliEkle(SaglikPersoneliKayitDto model)
+        {
+            try
+            {
+                var personel = await _kurumService.SaglikPersoneliKaydetAsync(model);
+                TempData["BasariMesaji"] = $"{personel.Unvan} {personel.TamAd} ({personel.GorevAlani}) sisteme başarıyla kaydedildi.";
+            }
+            catch (DomainException ex)
+            {
+                TempData["HataMesaji"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> HastaEkle(HastaKayitDto model)
+        {
+            try
+            {
+                var hasta = await _kurumService.HastaKaydetAsync(model);
+                TempData["BasariMesaji"] = $"{hasta.TamAd} (TC: {hasta.TcKimlikNo}) hasta olarak başarıyla kaydedildi.";
+            }
+            catch (DomainException ex)
+            {
+                TempData["HataMesaji"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UygunlukTanimla(CalisanUygunlukTanimlaDto model)
         {
             try

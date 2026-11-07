@@ -148,6 +148,22 @@ namespace HastaneRandevuSistemi.Business.Services
             await _unitOfWork.SaveChangesAsync();
         }
 
+        public async Task RandevuTamamlaAsync(int randevuId, int onaylayanKullaniciId, string? muayeneSonucNotu)
+        {
+            var randevu = await _unitOfWork.Randevular.GetByIdAsync(randevuId)
+                ?? throw new DomainException("Randevu bulunamadı.");
+
+            var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(onaylayanKullaniciId);
+            if (islemYapan == null || !islemYapan.AktifMi)
+            {
+                throw new DomainException("İşlem yapan yetkili kullanıcı bulunamadı.");
+            }
+
+            randevu.Tamamla(islemYapan, muayeneSonucNotu);
+            _unitOfWork.Randevular.Update(randevu);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
         public async Task RandevuIptalEtAsync(int randevuId, string iptalSebebi)
         {
             var randevu = await _unitOfWork.Randevular.GetByIdAsync(randevuId)
