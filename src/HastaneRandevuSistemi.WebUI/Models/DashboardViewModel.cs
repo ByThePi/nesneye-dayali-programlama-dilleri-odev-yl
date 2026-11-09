@@ -1,5 +1,6 @@
 using HastaneRandevuSistemi.Core.Entities;
 using HastaneRandevuSistemi.Core.Entities.Abstract;
+using HastaneRandevuSistemi.Core.Enums;
 
 namespace HastaneRandevuSistemi.WebUI.Models
 {
@@ -15,10 +16,15 @@ namespace HastaneRandevuSistemi.WebUI.Models
     public class RandevuSayfaViewModel
     {
         public IReadOnlyList<Randevu> Randevular { get; set; } = new List<Randevu>();
+        public IReadOnlyList<HastaneSube> Subeler { get; set; } = new List<HastaneSube>();
         public IReadOnlyList<Hasta> Hastalar { get; set; } = new List<Hasta>();
         public IReadOnlyList<Doktor> Doktorlar { get; set; } = new List<Doktor>();
         public IReadOnlyList<SaglikHizmeti> Hizmetler { get; set; } = new List<SaglikHizmeti>();
         public IReadOnlyList<Kullanici> OnayYetkilileri { get; set; } = new List<Kullanici>();
+
+        public int? SeciliSubeId { get; set; }
+        public int? SeciliDoktorId { get; set; }
+        public RandevuDurumu? SeciliDurum { get; set; }
     }
 
     public class KurumYonetimSayfaViewModel
