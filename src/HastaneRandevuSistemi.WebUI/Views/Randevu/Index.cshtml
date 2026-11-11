@@ -2,6 +2,11 @@
 @using HastaneRandevuSistemi.Core.Enums
 @{
     ViewData["Title"] = "Randevu Yönetimi ve Onay Sistemi";
+    int onayBekleyenSayisi = Model.Randevular.Count(r => r.Durum == RandevuDurumu.OnayBekliyor);
+    int aktifOnayliSayisi = Model.Randevular.Count(r => r.Durum == RandevuDurumu.Onaylandi || r.Durum == RandevuDurumu.Tamamlandi);
+    decimal toplamTutar = Model.Randevular
+        .Where(r => r.Durum != RandevuDurumu.IptalEdildi && r.Durum != RandevuDurumu.Reddedildi)
+        .Sum(r => r.ToplamUcret);
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -94,11 +99,92 @@
         </div>
     </div>
 
-    <!-- Mevcut Randevular ve Onay Mekanizması -->
+    <!-- Mevcut Randevular, Filtreleme ve Onay Mekanizması -->
     <div class="col-lg-8">
+        <!-- Özet İstatistik Çubuğu -->
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <div class="border rounded bg-white p-2 shadow-sm d-flex justify-content-between align-items-center">
+                    <span class="small text-muted fw-semibold">Onay Bekleyen</span>
+                    <span class="badge bg-warning text-dark fs-6">@onayBekleyenSayisi</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="border rounded bg-white p-2 shadow-sm d-flex justify-content-between align-items-center">
+                    <span class="small text-muted fw-semibold">Onaylı / Tamamlanan</span>
+                    <span class="badge bg-success fs-6">@aktifOnayliSayisi</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="border rounded bg-white p-2 shadow-sm d-flex justify-content-between align-items-center">
+                    <span class="small text-muted fw-semibold">Aktif Randevu Tutarı</span>
+                    <span class="fw-bold text-primary">@toplamTutar.ToString("N2") ₺</span>
+                </div>
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3">
-                <h5 class="mb-0 fw-bold">Kayıtlı Randevular ve Polimorfik Onay Süreci</h5>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h5 class="mb-0 fw-bold">Kayıtlı Randevular ve Polimorfik Onay Süreci</h5>
+                    <span class="badge bg-light text-dark border">Listelenen: @Model.Randevular.Count kayıt</span>
+                </div>
+
+                <!-- Çok Şubeli & Durum Bazlı Filtreleme Formu -->
+                <form method="get" asp-action="Index" class="row g-2 mt-2 pt-2 border-top">
+                    <div class="col-md-4">
+                        <select name="subeId" class="form-select form-select-sm">
+                            <option value="">Tüm Şubeler / Klinikler</option>
+                            @foreach (var sube in Model.Subeler)
+                            {
+                                if (Model.SeciliSubeId == sube.Id)
+                                {
+                                    <option value="@sube.Id" selected>@sube.SubeAdi</option>
+                                }
+                                else
+                                {
+                                    <option value="@sube.Id">@sube.SubeAdi</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select name="doktorId" class="form-select form-select-sm">
+                            <option value="">Tüm Doktorlar</option>
+                            @foreach (var dr in Model.Doktorlar)
+                            {
+                                if (Model.SeciliDoktorId == dr.Id)
+                                {
+                                    <option value="@dr.Id" selected>@dr.Unvan @dr.TamAd</option>
+                                }
+                                else
+                                {
+                                    <option value="@dr.Id">@dr.Unvan @dr.TamAd</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="durum" class="form-select form-select-sm">
+                            <option value="">Tüm Durumlar</option>
+                            @foreach (var d in Enum.GetValues<RandevuDurumu>())
+                            {
+                                if (Model.SeciliDurum == d)
+                                {
+                                    <option value="@d" selected>@d</option>
+                                }
+                                else
+                                {
+                                    <option value="@d">@d</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-1">
+                        <button type="submit" class="btn btn-sm btn-outline-primary flex-fill">Filtrele</button>
+                        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Sıfırla</a>
+                    </div>
+                </form>
             </div>
             <div class="card-body">
                 <div class="table-responsive">

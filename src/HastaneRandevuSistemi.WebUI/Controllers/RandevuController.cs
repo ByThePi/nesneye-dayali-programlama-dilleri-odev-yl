@@ -1,5 +1,6 @@
 using HastaneRandevuSistemi.Business.DTOs;
 using HastaneRandevuSistemi.Business.Interfaces;
+using HastaneRandevuSistemi.Core.Enums;
 using HastaneRandevuSistemi.Core.Exceptions;
 using HastaneRandevuSistemi.WebUI.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -18,17 +19,39 @@ namespace HastaneRandevuSistemi.WebUI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int? subeId, int? doktorId, RandevuDurumu? durum)
         {
             var tumKullanicilar = await _kurumService.TumKullanicilariGetirAsync();
+            var tumRandevular = await _randevuService.TumRandevulariGetirAsync();
+
+            var filtrelenmisRandevular = tumRandevular.AsEnumerable();
+
+            if (subeId.HasValue && subeId.Value > 0)
+            {
+                filtrelenmisRandevular = filtrelenmisRandevular.Where(r => r.HastaneSubeId == subeId.Value);
+            }
+
+            if (doktorId.HasValue && doktorId.Value > 0)
+            {
+                filtrelenmisRandevular = filtrelenmisRandevular.Where(r => r.DoktorId == doktorId.Value);
+            }
+
+            if (durum.HasValue)
+            {
+                filtrelenmisRandevular = filtrelenmisRandevular.Where(r => r.Durum == durum.Value);
+            }
 
             var viewModel = new RandevuSayfaViewModel
             {
-                Randevular = await _randevuService.TumRandevulariGetirAsync(),
+                Randevular = filtrelenmisRandevular.ToList(),
+                Subeler = await _kurumService.SubeleriDetayliGetirAsync(),
                 Hastalar = await _kurumService.HastalariGetirAsync(),
                 Doktorlar = await _kurumService.DoktorlariDetayliGetirAsync(),
                 Hizmetler = await _kurumService.HizmetleriGetirAsync(),
-                OnayYetkilileri = tumKullanicilar.Where(k => k.RandevuOnaylayabilirMi()).ToList()
+                OnayYetkilileri = tumKullanicilar.Where(k => k.RandevuOnaylayabilirMi()).ToList(),
+                SeciliSubeId = subeId,
+                SeciliDoktorId = doktorId,
+                SeciliDurum = durum
             };
 
             return View(viewModel);
