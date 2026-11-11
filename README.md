@@ -2,28 +2,123 @@
 
 Sakarya Üniversitesi Yüksek Lisans **Nesneye Dayalı Programlama Dilleri** dersi kapsamında **.NET 10.0 LTS**, **ASP.NET Core MVC** ve **Entity Framework Core (SQLite)** kullanılarak geliştirilmiş çok katmanlı (N-Tier / Clean Architecture) Hastane ve Klinik Randevu Sistemi.
 
+---
+
 ## 1. Mimari Yapı ve Katmanlar
 
-Çözüm (`HastaneRandevuSistemi.sln`) 4 ana katmandan oluşmaktadır:
+Çözüm (`HastaneRandevuSistemi.sln`) **Dependency Inversion Prensibi (DIP)** doğrultusunda 4 ana katmandan oluşmaktadır:
 
-1. **`HastaneRandevuSistemi.Core`** *(Domain Katmanı)*
-   - Soyut sınıflar (`BaseEntity`, `Kullanici`, `Calisan`), somut varlıklar (`SaglikKurumu`, `HastaneSube`, `Departman`, `SaglikHizmeti`, `Doktor`, `SaglikPersoneli`, `KurumYoneticisi`, `Hasta`, `CalisanUygunluk`, `Randevu`), `IRepository<T>` / `IUnitOfWork` arayüzleri ve özel iş kuralı istisnaları (`DomainException`, `RandevuCakismaException`, `YetkisizIslemException`).
+1. **`HastaneRandevuSistemi.Core`** *(Domain & Soyutlama Katmanı)*
+   - Soyut sınıflar (`BaseEntity`, `Kullanici`, `Calisan`), somut varlıklar (`SaglikKurumu`, `HastaneSube`, `Departman`, `SaglikHizmeti`, `Doktor`, `SaglikPersoneli`, `KurumYoneticisi`, `Hasta`, `CalisanUygunluk`, `Randevu`), `IRepository<T>` / `IUnitOfWork` arayüzleri, `IUcretHesaplamaStratejisi` strateji desenleri ve domain istisnaları (`DomainException`, `RandevuCakismaException`, `YetkisizIslemException`).
 2. **`HastaneRandevuSistemi.DataAccess`** *(Veri Erişim Katmanı)*
-   - Entity Framework Core `AppDbContext` (TPT - Table Per Type kalıtım eşlemesi), Generic Repository & Unit of Work implementasyonları ve örnek başlangıç verilerini otomatik yükleyen `DataSeeder`.
+   - Entity Framework Core `AppDbContext` (TPT - Table Per Type kalıtım eşlemesi), özelleşmiş Repository (`RandevuRepository`, `DoktorRepository`, `HastaneSubeRepository`, `SaglikHizmetiRepository`) & `UnitOfWork` implementasyonları ve örnek başlangıç verilerini otomatik yükleyen `DataSeeder`.
 3. **`HastaneRandevuSistemi.Business`** *(İş Mantığı Katmanı)*
-   - Şube çalışma saatleri doğrulaması, doktor uygunluk zaman dilimi kontrolü, randevu çakışma kontrolü, polimorfik ücret hesaplama ve randevu onay/red mekanizmalarını yürüten servisler (`RandevuService`, `KurumYonetimService`).
+   - Doğrudan `AppDbContext` bağımlılığı olmadan yalnızca `IUnitOfWork` soyutlaması üzerinden çalışan iş servisleri (`RandevuService`, `KurumYonetimService`).
 4. **`HastaneRandevuSistemi.WebUI`** *(Sunum Katmanı - ASP.NET Core MVC)*
-   - Kullanıcı rolleri, şube/bölüm/hizmet tanımları, doktor uygunluk takvimi ve randevu oluşturma/onay süreçlerini sunan MVC arayüzü.
+   - Kurum/şube/bölüm/hizmet tanımlama, doktor/sağlık personeli/hasta kaydı, uygunluk takvimi yönetimi, çakışma kontrollü randevu oluşturma, şube/doktor/durum bazlı filtreleme ve polimorfik onay süreçlerini sunan MVC arayüzü.
 
-## 2. Uygulanan OOP İlkeleri
+---
 
-- **Soyutlama (Abstraction):** `BaseEntity`, `Kullanici` ve `Calisan` soyut (`abstract`) sınıfları ile ortak özellik ve davranış sözleşmeleri tanımlanmıştır.
-- **Kalıtım (Inheritance):** `Hasta`, `KurumYoneticisi` ve `Calisan` (`Doktor`, `SaglikPersoneli`) sınıfları `Kullanici` sınıfından türetilmiştir.
-- **Çok Biçimlilik (Polymorphism):** `KullaniciOzetiGetir()`, `RandevuOnaylayabilirMi()`, `KurumTanimlayabilirMi()` ve `SaglikHizmeti.NetUcretHesapla()` metotları çalışma zamanında nesnenin gerçek tipine göre farklı davranış sergiler.
-- **Kapsülleme (Encapsulation):** `Randevu`, `HastaneSube`, `SaglikHizmeti` ve `CalisanUygunluk` sınıflarındaki kritik özellikler `private set` / `protected set` ile korunmuş; durum değişiklikleri iş kurallarını denetleyen davranış metotları (`RandevuPlanla`, `Onayla`, `ZamanDilimiAyarla` vb.) üzerinden gerçekleştirilmiştir.
+## 2. OOP Sınıf Diyagramı (Class Diagram)
 
-## 3. Kurulum ve Çalıştırma (Visual Studio / .NET CLI)
+```mermaid
+classDiagram
+    class BaseEntity {
+        <<abstract>>
+        +int Id
+        +DateTime OlusturulmaTarihi
+        +bool AktifMi
+        +Aktiflestir()
+        +Pasiflestir()
+    }
+
+    class Kullanici {
+        <<abstract>>
+        +string Ad
+        +string Soyad
+        +KullaniciRolu Rol
+        +KullaniciOzetiGetir()* string
+        +RandevuOnaylayabilirMi() bool
+        +KurumTanimlayabilirMi() bool
+    }
+
+    class Calisan {
+        <<abstract>>
+        +int HastaneSubeId
+        +int DepartmanId
+        +string SicilNo
+        +string Unvan
+    }
+
+    class Doktor {
+        +string UzmanlikAlani
+        +string DiplomaNo
+        +KullaniciOzetiGetir() string
+        +RandevuOnaylayabilirMi() bool
+    }
+
+    class SaglikPersoneli {
+        +string GorevAlani
+        +string VardiyaBilgisi
+        +KullaniciOzetiGetir() string
+        +RandevuOnaylayabilirMi() bool
+    }
+
+    class KurumYoneticisi {
+        +string YetkiUnvani
+        +KullaniciOzetiGetir() string
+        +RandevuOnaylayabilirMi() bool
+        +KurumTanimlayabilirMi() bool
+    }
+
+    class Hasta {
+        +string TcKimlikNo
+        +bool OzelSigortaVarMi
+        +KullaniciOzetiGetir() string
+    }
+
+    class IUcretHesaplamaStratejisi {
+        <<interface>>
+        +Hesapla(SaglikHizmeti, decimal) decimal
+    }
+
+    class StandartSgkUcretStratejisi {
+        +Hesapla(SaglikHizmeti, decimal) decimal
+    }
+
+    class OzelSigortaUcretStratejisi {
+        +Hesapla(SaglikHizmeti, decimal) decimal
+    }
+
+    BaseEntity <|-- Kullanici
+    Kullanici <|-- Hasta
+    Kullanici <|-- KurumYoneticisi
+    Kullanici <|-- Calisan
+    Calisan <|-- Doktor
+    Calisan <|-- SaglikPersoneli
+    IUcretHesaplamaStratejisi <|.. StandartSgkUcretStratejisi
+    IUcretHesaplamaStratejisi <|.. OzelSigortaUcretStratejisi
+```
+
+---
+
+## 3. Ödev Gereksinimleri Karşılama Tablosu
+
+| Ödev Gereksinimi | Uygulanan Sınıf / Metot |
+| :--- | :--- |
+| **Tek ve Çok Şubeli Hastane/Klinik Tanımı** | `SaglikKurumu`, `HastaneSube`, `KurumYonetimService.SubeOlusturAsync()` |
+| **Çalışma Saatleri ve Bölüm Tanımları** | `HastaneSube.CalismaSaatleriniAyarla()`, `Departman`, `DepartmanOlusturAsync()` |
+| **Sağlık Hizmeti, Süre ve Ücret Tanımı** | `SaglikHizmeti.HizmetBilgileriniAyarla()`, `IUcretHesaplamaStratejisi` |
+| **Doktor ve Sağlık Personeli Kaydı** | `DoktorKaydetAsync()`, `SaglikPersoneliKaydetAsync()`, `DoktoraHizmetTanimlaAsync()` |
+| **Doktor Uygunluk Zaman Dilimleri** | `CalisanUygunluk.ZamanDilimiAyarla()`, `ZamanDilimiUygunMu()` |
+| **Randevu Çakışma Kontrolü** | `Randevu.ZamanCakisiyorMu()`, `RandevuService.RandevuOlusturAsync()` |
+| **Randevu Onay / Red / Tamamlama Mekanizması** | `Randevu.Onayla()`, `Randevu.Reddet()`, `Randevu.Tamamla()`, `Randevu.IptalEt()` |
+| **En Az 3 Kullanıcı Rolü (Polimorfik Yetki)** | `Hasta`, `Doktor`, `SaglikPersoneli`, `KurumYoneticisi` (`Kullanici` soyut sınıfı) |
+
+---
+
+## 4. Kurulum ve Çalıştırma (Visual Studio / .NET CLI)
 
 1. `HastaneRandevuSistemi.sln` dosyasını **Visual Studio** ile açın.
 2. Başlangıç projesi (Startup Project) olarak **`HastaneRandevuSistemi.WebUI`** projesini seçin ve **F5** (veya `dotnet run --project src/HastaneRandevuSistemi.WebUI`) ile çalıştırın.
-3. İlk çalıştırmada SQLite veritabanı (`HastaneRandevuSistemi.db`) ve örnek hastane/klinik, doktor, uygunluk takvimi ve randevu verileri otomatik olarak oluşturulur.
+3. İlk çalıştırmada SQLite veritabanı (`HastaneRandevuSistemi.db`) ve örnek hastane/klinik, doktor, sağlık personeli, hasta, uygunluk takvimi ve randevu verileri otomatik olarak oluşturulur.
