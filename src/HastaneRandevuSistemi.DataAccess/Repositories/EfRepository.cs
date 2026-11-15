@@ -73,21 +73,26 @@ namespace HastaneRandevuSistemi.DataAccess.Repositories
 
         public async Task<IReadOnlyList<Randevu>> TumRandevulariDetayliGetirAsync()
         {
-            return await _dbSet
+            var randevular = await _dbSet
                 .Include(r => r.Hasta)
                 .Include(r => r.Doktor)
                 .Include(r => r.SaglikHizmeti)
                 .Include(r => r.HastaneSube)
-                .OrderByDescending(r => r.RandevuTarihi)
-                .ThenBy(r => r.BaslangicSaati)
+                .OrderBy(r => r.RandevuTarihi)
                 .ToListAsync();
+
+            // SQLite TimeSpan tipinde SQL ORDER BY desteklemediği için saat sıralaması bellekte (LINQ to Objects) yapılır
+            return randevular
+                .OrderBy(r => r.RandevuTarihi)
+                .ThenBy(r => r.BaslangicSaati)
+                .ToList();
         }
 
         public async Task<IReadOnlyList<Randevu>> GunlukAktifRandevulariGetirAsync(DateTime tarih)
         {
             DateTime hedefTarih = tarih.Date;
             return await _dbSet
-                .Where(r => r.RandevuTarihi.Date == hedefTarih && r.AktifMi)
+                .Where(r => r.RandevuTarihi == hedefTarih && r.AktifMi)
                 .ToListAsync();
         }
     }
@@ -103,10 +108,10 @@ namespace HastaneRandevuSistemi.DataAccess.Repositories
             return await _dbSet
                 .Include(d => d.HastaneSube)
                 .Include(d => d.Departman)
-                .Include(d => d.UygunlukTakvimi)
-                .Include(d => d.DoktorHizmetleri)
+                .Include(d => d.UygunlukTakvimi.Where(u => u.AktifMi))
+                .Include(d => d.DoktorHizmetleri.Where(dh => dh.AktifMi))
                     .ThenInclude(dh => dh.SaglikHizmeti)
-                .Where(d => d.AktifMi)
+                .Where(d => d.AktifMi && d.HastaneSube!.AktifMi && d.Departman!.AktifMi)
                 .ToListAsync();
         }
 
@@ -114,8 +119,8 @@ namespace HastaneRandevuSistemi.DataAccess.Repositories
         {
             return await _dbSet
                 .Include(d => d.HastaneSube)
-                .Include(d => d.UygunlukTakvimi)
-                .Include(d => d.DoktorHizmetleri)
+                .Include(d => d.UygunlukTakvimi.Where(u => u.AktifMi))
+                .Include(d => d.DoktorHizmetleri.Where(dh => dh.AktifMi))
                 .FirstOrDefaultAsync(d => d.Id == doktorId && d.AktifMi);
         }
     }
@@ -130,8 +135,8 @@ namespace HastaneRandevuSistemi.DataAccess.Repositories
         {
             return await _dbSet
                 .Include(s => s.SaglikKurumu)
-                .Include(s => s.Departmanlar)
-                    .ThenInclude(d => d.Hizmetler)
+                .Include(s => s.Departmanlar.Where(d => d.AktifMi))
+                    .ThenInclude(d => d.Hizmetler.Where(h => h.AktifMi))
                 .Where(s => s.AktifMi)
                 .ToListAsync();
         }
@@ -148,7 +153,7 @@ namespace HastaneRandevuSistemi.DataAccess.Repositories
             return await _dbSet
                 .Include(h => h.Departman)
                     .ThenInclude(d => d!.HastaneSube)
-                .Where(h => h.AktifMi)
+                .Where(h => h.AktifMi && h.Departman!.AktifMi && h.Departman!.HastaneSube!.AktifMi)
                 .ToListAsync();
         }
     }

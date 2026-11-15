@@ -20,6 +20,7 @@ namespace HastaneRandevuSistemi.DataAccess.Context
         public DbSet<Doktor> Doktorlar => Set<Doktor>();
         public DbSet<SaglikPersoneli> SaglikPersonelleri => Set<SaglikPersoneli>();
         public DbSet<KurumYoneticisi> KurumYoneticileri => Set<KurumYoneticisi>();
+        public DbSet<SistemYoneticisi> SistemYoneticileri => Set<SistemYoneticisi>();
         public DbSet<DoktorHizmet> DoktorHizmetleri => Set<DoktorHizmet>();
         public DbSet<CalisanUygunluk> CalisanUygunluklari => Set<CalisanUygunluk>();
         public DbSet<Randevu> Randevular => Set<Randevu>();
@@ -28,13 +29,13 @@ namespace HastaneRandevuSistemi.DataAccess.Context
         {
             base.OnModelCreating(modelBuilder);
 
-            // OOP Kalıtım Hiyerarşisi (TPT - Table Per Type ile her alt sınıfın kendi tablosu olur)
             modelBuilder.Entity<Kullanici>().ToTable("Kullanicilar");
             modelBuilder.Entity<Calisan>().ToTable("Calisanlar");
             modelBuilder.Entity<Hasta>().ToTable("Hastalar");
             modelBuilder.Entity<Doktor>().ToTable("Doktorlar");
             modelBuilder.Entity<SaglikPersoneli>().ToTable("SaglikPersonelleri");
             modelBuilder.Entity<KurumYoneticisi>().ToTable("KurumYoneticileri");
+            modelBuilder.Entity<SistemYoneticisi>().ToTable("SistemYoneticileri");
 
             modelBuilder.Entity<SaglikKurumu>(entity =>
             {

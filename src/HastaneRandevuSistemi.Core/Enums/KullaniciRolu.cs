@@ -5,6 +5,7 @@ namespace HastaneRandevuSistemi.Core.Enums
         Hasta = 1,
         Doktor = 2,
         SaglikPersoneli = 3,
-        KurumYoneticisi = 4
+        KurumYoneticisi = 4,
+        SistemYoneticisi = 5
     }
 }

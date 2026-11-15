@@ -1,0 +1,114 @@
+@model HastaneRandevuSistemi.WebUI.Models.GirisSayfaViewModel
+@using HastaneRandevuSistemi.Core.Entities
+@using HastaneRandevuSistemi.Core.Enums
+@{
+    ViewData["Title"] = "Sisteme Giriş Yap";
+}
+
+<div class="row justify-content-center mt-3">
+    <div class="col-lg-5 mb-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white py-3">
+                <h4 class="mb-0 fw-bold">Hastane Randevu Sistemi Girişi</h4>
+                <small>Hasta, Doktor, Sağlık Personeli veya Yönetici hesabınızla giriş yapınız</small>
+            </div>
+            <div class="card-body p-4">
+                @if (TempData["HataMesaji"] != null)
+                {
+                    <div class="alert alert-danger">@TempData["HataMesaji"]</div>
+                }
+
+                <form asp-action="Giris" method="post">
+                    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">E-Posta Adresi</label>
+                        <input type="email" id="loginEmail" name="Email" class="form-control" placeholder="ornek@mail.com" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Şifre</label>
+                        <input type="password" id="loginSifre" name="Sifre" class="form-control" placeholder="••••••" required />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold py-2 mb-3">
+                        Giriş Yap
+                    </button>
+
+                    <div class="text-center border-top pt-3">
+                        <span class="text-muted small">Henüz hasta kaydınız yok mu?</span>
+                        <a asp-action="KayitOl" class="fw-semibold text-decoration-none ms-1">Yeni Hasta Kaydı Oluştur</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hızlı Test İçin Hazır Kullanıcı Hesapları -->
+    <div class="col-lg-7 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold">Hızlı Giriş Hesapları (Rol Bazlı Test Seçenekleri)</h5>
+                <small class="text-muted">Aşağıdaki hesaplardan birine tıklayarak bilgileri otomatik doldurup hemen giriş yapabilirsiniz (Tüm şifreler: <code>123456</code>)</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ad Soyad</th>
+                                <th>Rol / Yetki Kapsamı</th>
+                                <th>E-Posta</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var h in Model.DemoHesaplar.OrderByDescending(x => x.Rol))
+                            {
+                                string kapsam = h switch
+                                {
+                                    SistemYoneticisi => "Genel Merkez Ana Admin (Tüm Hastaneler)",
+                                    KurumYoneticisi ky => Model.Subeler.FirstOrDefault(s => s.Id == ky.SorumluSubeId)?.SubeAdi + " Yöneticisi",
+                                    Doktor dr => $"{dr.Unvan} ({Model.Subeler.FirstOrDefault(s => s.Id == dr.HastaneSubeId)?.SubeAdi})",
+                                    SaglikPersoneli sp => $"{sp.Unvan} ({Model.Subeler.FirstOrDefault(s => s.Id == sp.HastaneSubeId)?.SubeAdi})",
+                                    Hasta hasta => hasta.OzelSigortaVarMi ? "Hasta (Özel Sigortalı)" : "Hasta (SGK)",
+                                    _ => h.Rol.ToString()
+                                };
+
+                                string rozetRenk = h.Rol switch
+                                {
+                                    KullaniciRolu.SistemYoneticisi => "bg-danger",
+                                    KullaniciRolu.KurumYoneticisi => "bg-primary",
+                                    KullaniciRolu.Doktor => "bg-info text-dark",
+                                    KullaniciRolu.SaglikPersoneli => "bg-secondary",
+                                    _ => "bg-success"
+                                };
+
+                                <tr>
+                                    <td class="fw-semibold">@h.TamAd</td>
+                                    <td><span class="badge @rozetRenk">@kapsam</span></td>
+                                    <td><code class="small">@h.Email</code></td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                onclick="hesapSec('@h.Email', '123456')">
+                                            Seç
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function hesapSec(email, sifre) {
+            document.getElementById('loginEmail').value = email;
+            document.getElementById('loginSifre').value = sifre;
+        }
+    </script>
+}

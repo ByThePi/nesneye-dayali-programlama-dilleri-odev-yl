@@ -2,6 +2,12 @@ using HastaneRandevuSistemi.Core.Enums;
 
 namespace HastaneRandevuSistemi.Business.DTOs
 {
+    public class GirisDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Sifre { get; set; } = string.Empty;
+    }
+
     public class SubeOlusturDto
     {
         public int IslemYapanKullaniciId { get; set; }
@@ -13,6 +19,18 @@ namespace HastaneRandevuSistemi.Business.DTOs
         public string Telefon { get; set; } = string.Empty;
         public TimeSpan AcilisSaati { get; set; } = new TimeSpan(8, 0, 0);
         public TimeSpan KapanisSaati { get; set; } = new TimeSpan(18, 0, 0);
+    }
+
+    public class SubeYoneticisiKayitDto
+    {
+        public int IslemYapanKullaniciId { get; set; }
+        public int HastaneSubeId { get; set; }
+        public string Ad { get; set; } = string.Empty;
+        public string Soyad { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Telefon { get; set; } = string.Empty;
+        public string Sifre { get; set; } = "123456";
+        public string YetkiUnvani { get; set; } = "Hastane / Klinik Yöneticisi";
     }
 
     public class DepartmanOlusturDto
@@ -83,6 +101,7 @@ namespace HastaneRandevuSistemi.Business.DTOs
         public string KanGrubu { get; set; } = "A Rh+";
         public string Email { get; set; } = string.Empty;
         public string Telefon { get; set; } = string.Empty;
+        public string Sifre { get; set; } = "123456";
         public bool OzelSigortaVarMi { get; set; }
     }
 

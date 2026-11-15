@@ -117,7 +117,14 @@ classDiagram
 
 ---
 
-## 4. Kurulum ve Çalıştırma (Visual Studio / .NET CLI)
+## 4. Detaylı Mimari ve Sunum Rehberi
+
+Katman bağımlılık şeması, randevu durum geçiş diyagramı (`State Diagram`), randevu çakışma kontrolü sıralama diyagramı (`Sequence Diagram`), SOLID/Design Pattern açıklamaları ve canlı sunum adımları için:
+- **[Mimari Tasarım, OOP İlkeleri ve Sunum Rehberi (`docs/MIMARI_VE_SUNUM_REHBERI.md`)](docs/MIMARI_VE_SUNUM_REHBERI.md)**
+
+---
+
+## 5. Kurulum ve Çalıştırma (Visual Studio / .NET CLI)
 
 1. `HastaneRandevuSistemi.sln` dosyasını **Visual Studio** ile açın.
 2. Başlangıç projesi (Startup Project) olarak **`HastaneRandevuSistemi.WebUI`** projesini seçin ve **F5** (veya `dotnet run --project src/HastaneRandevuSistemi.WebUI`) ile çalıştırın.

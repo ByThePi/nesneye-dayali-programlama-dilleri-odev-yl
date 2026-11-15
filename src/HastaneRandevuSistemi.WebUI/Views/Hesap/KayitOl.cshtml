@@ -1,0 +1,96 @@
+@model HastaneRandevuSistemi.Business.DTOs.HastaKayitDto
+@{
+    ViewData["Title"] = "Yeni Hasta Kaydı";
+}
+
+<div class="row justify-content-center mt-3">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0 fw-bold">Yeni Hasta Kayıt Formu</h4>
+                    <small>Randevu alabilmek için hasta bilgilerinizi eksiksiz doldurunuz</small>
+                </div>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-controller="Randevu" asp-action="Index" class="btn btn-sm btn-light">Randevu Ekranına Dön</a>
+                }
+                else
+                {
+                    <a asp-action="Giris" class="btn btn-sm btn-light">Giriş Ekranına Dön</a>
+                }
+            </div>
+            <div class="card-body p-4">
+                @if (TempData["HataMesaji"] != null)
+                {
+                    <div class="alert alert-danger">@TempData["HataMesaji"]</div>
+                }
+
+                <form asp-action="KayitOl" method="post">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Ad</label>
+                            <input type="text" name="Ad" value="@Model.Ad" class="form-control" placeholder="Adınız" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Soyad</label>
+                            <input type="text" name="Soyad" value="@Model.Soyad" class="form-control" placeholder="Soyadınız" required />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">T.C. Kimlik Numarası (11 Hane)</label>
+                            <input type="text" name="TcKimlikNo" value="@Model.TcKimlikNo" maxlength="11" minlength="11" class="form-control" placeholder="11 haneli T.C. Kimlik No" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Doğum Tarihi</label>
+                            <input type="date" name="DogumTarihi" value="@Model.DogumTarihi.ToString("yyyy-MM-dd")" class="form-control" required />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">E-Posta Adresi (Giriş İçin)</label>
+                            <input type="email" name="Email" value="@Model.Email" class="form-control" placeholder="ornek@mail.com" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Telefon Numarası</label>
+                            <input type="text" name="Telefon" value="@Model.Telefon" class="form-control" placeholder="05XX XXX XX XX" required />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Kan Grubu</label>
+                            <select name="KanGrubu" class="form-select">
+                                <option value="A Rh+">A Rh+</option>
+                                <option value="0 Rh+">0 Rh+</option>
+                                <option value="B Rh+">B Rh+</option>
+                                <option value="AB Rh+">AB Rh+</option>
+                                <option value="A Rh-">A Rh-</option>
+                                <option value="0 Rh-">0 Rh-</option>
+                                <option value="B Rh-">B Rh-</option>
+                                <option value="AB Rh-">AB Rh-</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Giriş Şifresi</label>
+                            <input type="password" name="Sifre" value="123456" class="form-control" required />
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="OzelSigortaVarMi" value="true" id="ozelSigortaCheck" />
+                                <label class="form-check-label fw-semibold" for="ozelSigortaCheck">Özel Sağlık Sigortam Var</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold py-2">
+                        Hasta Kaydını Tamamla
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

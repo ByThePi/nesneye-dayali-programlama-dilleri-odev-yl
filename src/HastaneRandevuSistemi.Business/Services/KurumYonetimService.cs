@@ -7,9 +7,6 @@ using HastaneRandevuSistemi.Core.Interfaces;
 
 namespace HastaneRandevuSistemi.Business.Services
 {
-    /// <summary>
-    /// Dependency Inversion Prensibi (DIP) kapsamında IUnitOfWork soyutlaması ile çalışan kurum ve çalışan yönetim servisi.
-    /// </summary>
     public class KurumYonetimService : IKurumYonetimService
     {
         private readonly IUnitOfWork _unitOfWork;
@@ -17,6 +14,26 @@ namespace HastaneRandevuSistemi.Business.Services
         public KurumYonetimService(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
+        }
+
+        public async Task<Kullanici?> GirisDogrulaAsync(string email, string sifre)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(sifre))
+            {
+                return null;
+            }
+
+            string arananEmail = email.Trim().ToLowerInvariant();
+            var kullanicilar = await _unitOfWork.Repository<Kullanici>().GetAllAsync(k => k.AktifMi);
+
+            return kullanicilar.FirstOrDefault(k =>
+                string.Equals(k.Email.Trim(), arananEmail, StringComparison.OrdinalIgnoreCase) &&
+                k.SifreHash == sifre.Trim());
+        }
+
+        public async Task<Kullanici?> KullaniciGetirAsync(int kullaniciId)
+        {
+            return await _unitOfWork.Repository<Kullanici>().GetByIdAsync(kullaniciId);
         }
 
         public async Task<IReadOnlyList<SaglikKurumu>> KurumlariGetirAsync()
@@ -32,7 +49,7 @@ namespace HastaneRandevuSistemi.Business.Services
         public async Task<IReadOnlyList<Departman>> DepartmanlariGetirAsync()
         {
             return await _unitOfWork.Repository<Departman>().GetAllAsync(
-                d => d.AktifMi,
+                d => d.AktifMi && d.HastaneSube!.AktifMi,
                 d => d.HastaneSube!);
         }
 
@@ -44,6 +61,14 @@ namespace HastaneRandevuSistemi.Business.Services
         public async Task<IReadOnlyList<SaglikHizmeti>> HizmetleriGetirAsync()
         {
             return await _unitOfWork.SaglikHizmetleri.HizmetleriDetayliGetirAsync();
+        }
+
+        public async Task<IReadOnlyList<SaglikPersoneli>> SaglikPersonelleriniGetirAsync()
+        {
+            return await _unitOfWork.Repository<SaglikPersoneli>().GetAllAsync(
+                p => p.AktifMi && p.HastaneSube!.AktifMi && p.Departman!.AktifMi,
+                p => p.HastaneSube!,
+                p => p.Departman!);
         }
 
         public async Task<IReadOnlyList<Hasta>> HastalariGetirAsync()
@@ -58,7 +83,14 @@ namespace HastaneRandevuSistemi.Business.Services
 
         public async Task<HastaneSube> SubeOlusturAsync(SubeOlusturDto model)
         {
-            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
+            var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(model.IslemYapanKullaniciId)
+                ?? throw new DomainException("Oturum açmış kullanıcı bulunamadı.");
+
+            if (!islemYapan.SubeTanimlayabilirMi())
+            {
+                throw new YetkisizIslemException(
+                    "Sisteme yeni hastane veya klinik şubesi tanımlama yetkisi yalnızca Genel Merkez Sistem Yöneticisine (Ana Admin) aittir.");
+            }
 
             if (string.IsNullOrWhiteSpace(model.SubeAdi))
             {
@@ -83,9 +115,45 @@ namespace HastaneRandevuSistemi.Business.Services
             return yeniSube;
         }
 
+        public async Task<KurumYoneticisi> SubeYoneticisiKaydetAsync(SubeYoneticisiKayitDto model)
+        {
+            var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(model.IslemYapanKullaniciId)
+                ?? throw new DomainException("Oturum açmış kullanıcı bulunamadı.");
+
+            if (!islemYapan.SubeTanimlayabilirMi())
+            {
+                throw new YetkisizIslemException(
+                    "Hastane şubelerine yönetici atama yetkisi yalnızca Genel Merkez Sistem Yöneticisine (Ana Admin) aittir.");
+            }
+
+            var sube = await _unitOfWork.HastaneSubeleri.GetByIdAsync(model.HastaneSubeId)
+                ?? throw new DomainException("Seçilen hastane şubesi bulunamadı.");
+
+            if (string.IsNullOrWhiteSpace(model.Ad) || string.IsNullOrWhiteSpace(model.Soyad) || string.IsNullOrWhiteSpace(model.Email))
+            {
+                throw new DomainException("Yönetici ad, soyad ve e-posta bilgileri zorunludur.");
+            }
+
+            var yeniYonetici = new KurumYoneticisi
+            {
+                Ad = model.Ad.Trim(),
+                Soyad = model.Soyad.Trim(),
+                Email = model.Email.Trim(),
+                Telefon = model.Telefon.Trim(),
+                SifreHash = string.IsNullOrWhiteSpace(model.Sifre) ? "123456" : model.Sifre.Trim(),
+                SorumluSubeId = sube.Id,
+                YetkiUnvani = $"{sube.SubeAdi} Yöneticisi"
+            };
+
+            await _unitOfWork.Repository<KurumYoneticisi>().AddAsync(yeniYonetici);
+            await _unitOfWork.SaveChangesAsync();
+
+            return yeniYonetici;
+        }
+
         public async Task<Departman> DepartmanOlusturAsync(DepartmanOlusturDto model)
         {
-            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
+            await SubeYonetimYetkisiDogrulaAsync(model.IslemYapanKullaniciId, model.HastaneSubeId);
 
             if (string.IsNullOrWhiteSpace(model.DepartmanAdi))
             {
@@ -108,7 +176,10 @@ namespace HastaneRandevuSistemi.Business.Services
 
         public async Task<SaglikHizmeti> SaglikHizmetiOlusturAsync(SaglikHizmetiOlusturDto model)
         {
-            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
+            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(model.DepartmanId)
+                ?? throw new DomainException("Seçilen bölüm/departman bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(model.IslemYapanKullaniciId, departman.HastaneSubeId);
 
             if (string.IsNullOrWhiteSpace(model.HizmetAdi))
             {
@@ -133,7 +204,10 @@ namespace HastaneRandevuSistemi.Business.Services
 
         public async Task<Doktor> DoktorKaydetAsync(DoktorKayitDto model)
         {
-            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
+            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(model.DepartmanId)
+                ?? throw new DomainException("Seçilen bölüm/departman bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(model.IslemYapanKullaniciId, departman.HastaneSubeId);
 
             if (string.IsNullOrWhiteSpace(model.Ad) || string.IsNullOrWhiteSpace(model.Soyad))
             {
@@ -144,9 +218,6 @@ namespace HastaneRandevuSistemi.Business.Services
             {
                 throw new DomainException("Doktor uzmanlık alanı belirtilmelidir.");
             }
-
-            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(model.DepartmanId)
-                ?? throw new DomainException("Seçilen bölüm/departman bulunamadı.");
 
             if (model.SaglikHizmetiId > 0)
             {
@@ -165,7 +236,7 @@ namespace HastaneRandevuSistemi.Business.Services
                 Soyad = model.Soyad.Trim(),
                 Email = model.Email.Trim(),
                 Telefon = model.Telefon.Trim(),
-                SifreHash = "DemoHash_YeniDoktor",
+                SifreHash = "123456",
                 Unvan = model.Unvan.Trim(),
                 UzmanlikAlani = model.UzmanlikAlani.Trim(),
                 SicilNo = model.SicilNo.Trim(),
@@ -189,7 +260,6 @@ namespace HastaneRandevuSistemi.Business.Services
                 await _unitOfWork.Repository<DoktorHizmet>().AddAsync(doktorHizmet);
             }
 
-            // Yeni doktor için varsayılan hafta içi uygunluk takvimini de oluştur
             var isGunleri = new[]
             {
                 DayOfWeek.Monday,
@@ -212,10 +282,10 @@ namespace HastaneRandevuSistemi.Business.Services
 
         public async Task<DoktorHizmet> DoktoraHizmetTanimlaAsync(DoktorHizmetEslestirDto model)
         {
-            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
-
             var doktor = await _unitOfWork.Doktorlar.DoktorDetayliGetirAsync(model.DoktorId)
                 ?? throw new DomainException("Seçilen doktor bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(model.IslemYapanKullaniciId, doktor.HastaneSubeId);
 
             var hizmet = await _unitOfWork.SaglikHizmetleri.GetByIdAsync(model.SaglikHizmetiId)
                 ?? throw new DomainException("Seçilen sağlık hizmeti bulunamadı.");
@@ -250,7 +320,10 @@ namespace HastaneRandevuSistemi.Business.Services
 
         public async Task<SaglikPersoneli> SaglikPersoneliKaydetAsync(SaglikPersoneliKayitDto model)
         {
-            await KurumTanimYetkisiDogrulaAsync(model.IslemYapanKullaniciId);
+            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(model.DepartmanId)
+                ?? throw new DomainException("Seçilen bölüm/departman bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(model.IslemYapanKullaniciId, departman.HastaneSubeId);
 
             if (string.IsNullOrWhiteSpace(model.Ad) || string.IsNullOrWhiteSpace(model.Soyad))
             {
@@ -262,16 +335,13 @@ namespace HastaneRandevuSistemi.Business.Services
                 throw new DomainException("Sağlık personeli görev alanı belirtilmelidir.");
             }
 
-            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(model.DepartmanId)
-                ?? throw new DomainException("Seçilen bölüm/departman bulunamadı.");
-
             var yeniPersonel = new SaglikPersoneli
             {
                 Ad = model.Ad.Trim(),
                 Soyad = model.Soyad.Trim(),
                 Email = model.Email.Trim(),
                 Telefon = model.Telefon.Trim(),
-                SifreHash = "DemoHash_YeniPersonel",
+                SifreHash = "123456",
                 Unvan = model.Unvan.Trim(),
                 GorevAlani = model.GorevAlani.Trim(),
                 VardiyaBilgisi = model.VardiyaBilgisi.Trim(),
@@ -298,12 +368,17 @@ namespace HastaneRandevuSistemi.Business.Services
                 throw new DomainException("TC Kimlik Numarası 11 haneli olmalıdır.");
             }
 
+            if (string.IsNullOrWhiteSpace(model.Email))
+            {
+                throw new DomainException("E-posta adresi zorunludur.");
+            }
+
             var mevcutHastalar = await _unitOfWork.Repository<Hasta>().GetAllAsync(
-                h => h.TcKimlikNo == model.TcKimlikNo.Trim() && h.AktifMi);
+                h => (h.TcKimlikNo == model.TcKimlikNo.Trim() || h.Email.ToLower() == model.Email.Trim().ToLower()) && h.AktifMi);
 
             if (mevcutHastalar.Any())
             {
-                throw new DomainException("Bu TC Kimlik Numarası ile kayıtlı bir hasta zaten bulunmaktadır.");
+                throw new DomainException("Bu TC Kimlik Numarası veya E-Posta ile kayıtlı bir hasta zaten bulunmaktadır.");
             }
 
             var yeniHasta = new Hasta
@@ -315,7 +390,7 @@ namespace HastaneRandevuSistemi.Business.Services
                 KanGrubu = model.KanGrubu.Trim(),
                 Email = model.Email.Trim(),
                 Telefon = model.Telefon.Trim(),
-                SifreHash = "DemoHash_YeniHasta",
+                SifreHash = string.IsNullOrWhiteSpace(model.Sifre) ? "123456" : model.Sifre.Trim(),
                 OzelSigortaVarMi = model.OzelSigortaVarMi
             };
 
@@ -330,15 +405,17 @@ namespace HastaneRandevuSistemi.Business.Services
             var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(model.IslemYapanKullaniciId)
                 ?? throw new DomainException("İşlem yapan kullanıcı bulunamadı.");
 
-            // Polimorfik yetki kontrolü: Kurum yöneticisi veya ilgili doktorun kendisi tanımlayabilir
-            if (!islemYapan.KurumTanimlayabilirMi() && islemYapan.Id != model.DoktorId)
-            {
-                throw new YetkisizIslemException(
-                    $"{islemYapan.TamAd} ({islemYapan.Rol}), başka bir doktorun çalışma takvimini tanımlama yetkisine sahip değildir.");
-            }
-
             var doktor = await _unitOfWork.Doktorlar.DoktorDetayliGetirAsync(model.DoktorId)
                 ?? throw new DomainException("Doktor bulunamadı.");
+
+            bool kendiTakvimiMi = islemYapan.Id == doktor.Id;
+            bool subeYoneticisiMi = islemYapan.SubeYonetimYetkisiVarMi(doktor.HastaneSubeId);
+
+            if (!kendiTakvimiMi && !subeYoneticisiMi)
+            {
+                throw new YetkisizIslemException(
+                    "Bu doktorun çalışma takvimini yalnızca kendisi veya bağlı olduğu hastanenin yöneticisi güncelleyebilir.");
+            }
 
             var mevcutGunKaydi = doktor.UygunlukTakvimi.FirstOrDefault(u => u.Gun == model.Gun && u.AktifMi);
             if (mevcutGunKaydi != null)
@@ -372,15 +449,118 @@ namespace HastaneRandevuSistemi.Business.Services
             return yeniUygunluk;
         }
 
-        private async Task KurumTanimYetkisiDogrulaAsync(int kullaniciId)
+        public async Task SubeYoneticisiYetkiKaldirAsync(int yoneticiId, int islemYapanKullaniciId)
+        {
+            var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(islemYapanKullaniciId)
+                ?? throw new DomainException("Oturum açmış kullanıcı bulunamadı.");
+
+            if (!islemYapan.SubeTanimlayabilirMi())
+            {
+                throw new YetkisizIslemException(
+                    "Şube yöneticisi yetkisini kaldırma işlemi yalnızca Genel Merkez Sistem Yöneticisine (Ana Admin) aittir.");
+            }
+
+            var yonetici = await _unitOfWork.Repository<KurumYoneticisi>().GetByIdAsync(yoneticiId)
+                ?? throw new DomainException("Yetkisi kaldırılacak şube yöneticisi bulunamadı.");
+
+            yonetici.SorumluSubeId = null;
+            _unitOfWork.Repository<KurumYoneticisi>().Remove(yonetici);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task SubePasiflestirAsync(int subeId, int islemYapanKullaniciId)
+        {
+            var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(islemYapanKullaniciId)
+                ?? throw new DomainException("Oturum açmış kullanıcı bulunamadı.");
+
+            if (!islemYapan.SubeTanimlayabilirMi())
+            {
+                throw new YetkisizIslemException(
+                    "Hastane veya klinik şubesini pasife alma yetkisi yalnızca Genel Merkez Sistem Yöneticisine (Ana Admin) aittir.");
+            }
+
+            var sube = await _unitOfWork.HastaneSubeleri.GetByIdAsync(subeId)
+                ?? throw new DomainException("Kaldırılacak hastane şubesi bulunamadı.");
+
+            _unitOfWork.HastaneSubeleri.Remove(sube);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task DepartmanPasiflestirAsync(int departmanId, int islemYapanKullaniciId)
+        {
+            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(departmanId)
+                ?? throw new DomainException("Kaldırılacak poliklinik/bölüm bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(islemYapanKullaniciId, departman.HastaneSubeId);
+
+            _unitOfWork.Repository<Departman>().Remove(departman);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task SaglikHizmetiPasiflestirAsync(int hizmetId, int islemYapanKullaniciId)
+        {
+            var hizmet = await _unitOfWork.SaglikHizmetleri.GetByIdAsync(hizmetId)
+                ?? throw new DomainException("Kaldırılacak sağlık hizmeti bulunamadı.");
+
+            var departman = await _unitOfWork.Repository<Departman>().GetByIdAsync(hizmet.DepartmanId)
+                ?? throw new DomainException("Hizmetin bağlı olduğu poliklinik bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(islemYapanKullaniciId, departman.HastaneSubeId);
+
+            _unitOfWork.SaglikHizmetleri.Remove(hizmet);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task DoktorPasiflestirAsync(int doktorId, int islemYapanKullaniciId)
+        {
+            var doktor = await _unitOfWork.Doktorlar.GetByIdAsync(doktorId)
+                ?? throw new DomainException("Kaldırılacak doktor kaydı bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(islemYapanKullaniciId, doktor.HastaneSubeId);
+
+            _unitOfWork.Doktorlar.Remove(doktor);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task DoktorHizmetKaldirAsync(int doktorHizmetId, int islemYapanKullaniciId)
+        {
+            var eslesme = await _unitOfWork.Repository<DoktorHizmet>().GetByIdAsync(doktorHizmetId)
+                ?? throw new DomainException("Kaldırılacak doktor-hizmet eşleştirmesi bulunamadı.");
+
+            var doktor = await _unitOfWork.Doktorlar.GetByIdAsync(eslesme.DoktorId)
+                ?? throw new DomainException("İlgili doktor bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(islemYapanKullaniciId, doktor.HastaneSubeId);
+
+            _unitOfWork.Repository<DoktorHizmet>().Remove(eslesme);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task SaglikPersoneliPasiflestirAsync(int personelId, int islemYapanKullaniciId)
+        {
+            var personel = await _unitOfWork.Repository<SaglikPersoneli>().GetByIdAsync(personelId)
+                ?? throw new DomainException("Kaldırılacak sağlık personeli bulunamadı.");
+
+            await SubeYonetimYetkisiDogrulaAsync(islemYapanKullaniciId, personel.HastaneSubeId);
+
+            _unitOfWork.Repository<SaglikPersoneli>().Remove(personel);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        private async Task SubeYonetimYetkisiDogrulaAsync(int kullaniciId, int hastaneSubeId)
         {
             var islemYapan = await _unitOfWork.Repository<Kullanici>().GetByIdAsync(kullaniciId)
-                ?? throw new DomainException("İşlem yapan kullanıcı sistemde bulunamadı.");
+                ?? throw new DomainException("Oturum açmış kullanıcı sistemde bulunamadı.");
 
             if (!islemYapan.KurumTanimlayabilirMi())
             {
+                throw new YetkisizIslemException("Bu işlemi gerçekleştirmek için yönetici yetkisine sahip olmanız gerekmektedir.");
+            }
+
+            if (!islemYapan.SubeYonetimYetkisiVarMi(hastaneSubeId))
+            {
                 throw new YetkisizIslemException(
-                    $"{islemYapan.TamAd} ({islemYapan.Rol}) hastane/klinik, hizmet veya çalışan tanımlama yetkisine sahip değildir. Yalnızca Kurum Yöneticisi bu işlemi yapabilir.");
+                    "Yalnızca kendi sorumlu olduğunuz hastane şubesi üzerinde bölüm, hizmet veya çalışan tanımlaması yapabilirsiniz.");
             }
         }
     }

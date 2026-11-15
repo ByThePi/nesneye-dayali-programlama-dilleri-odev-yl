@@ -1,9 +1,10 @@
+@using System.Security.Claims
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Hastane / Klinik Randevu Sistemi</title>
+    <title>@ViewData["Title"] - Marmara Medikal Randevu Portalı</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -11,28 +12,62 @@
 </head>
 <body class="bg-light">
     <header>
-        <nav class="navbar navbar-expand-sm navbar-dark bg-primary border-bottom box-shadow mb-4">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary border-bottom box-shadow mb-4">
             <div class="container">
                 <a class="navbar-brand fw-bold" asp-area="" asp-controller="Home" asp-action="Index">
-                    Hastane &amp; Klinik Randevu Sistemi
+                    Marmara Medikal Sağlık Grubu
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
                         aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="Home" asp-action="Index">Kurum &amp; OOP Mimari Paneli</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="KurumYonetim" asp-action="Index">Kurum &amp; Çalışan Tanımlama</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white fw-semibold" asp-controller="Randevu" asp-action="Index">Randevu Yönetimi &amp; Onay</a>
-                        </li>
-                    </ul>
-                    <span class="badge bg-light text-primary">.NET 10.0 LTS | Çok Katmanlı OOP Mimari</span>
+                <div class="navbar-collapse collapse d-lg-inline-flex justify-content-between">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        var rol = User.FindFirstValue(ClaimTypes.Role);
+                        string rolEtiketi = rol switch
+                        {
+                            "SistemYoneticisi" => "Genel Merkez Yöneticisi",
+                            "KurumYoneticisi" => "Hastane Yöneticisi",
+                            "Doktor" => "Doktor",
+                            "SaglikPersoneli" => "Sağlık Personeli",
+                            "Hasta" => "Hasta",
+                            _ => "Kullanıcı"
+                        };
+
+                        <ul class="navbar-nav flex-grow-1">
+                            <li class="nav-item">
+                                <a class="nav-link text-white" asp-controller="Home" asp-action="Index">Hastanelerimiz &amp; Hekimlerimiz</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-white fw-semibold" asp-controller="Randevu" asp-action="Index">Randevu İşlemleri</a>
+                            </li>
+                            @if (User.IsInRole("SistemYoneticisi") || User.IsInRole("KurumYoneticisi"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link text-warning fw-bold" asp-controller="KurumYonetim" asp-action="Index">Yönetim Paneli</a>
+                                </li>
+                            }
+                        </ul>
+
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-white small">
+                                <strong>@User.Identity.Name</strong>
+                                <span class="badge bg-light text-primary ms-1">@rolEtiketi</span>
+                            </span>
+                            <form asp-controller="Hesap" asp-action="Cikis" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-light">Çıkış Yap</button>
+                            </form>
+                        </div>
+                    }
+                    else
+                    {
+                        <ul class="navbar-nav flex-grow-1"></ul>
+                        <div class="d-flex gap-2">
+                            <a asp-controller="Hesap" asp-action="Giris" class="btn btn-sm btn-light text-primary fw-semibold">Giriş Yap</a>
+                            <a asp-controller="Hesap" asp-action="KayitOl" class="btn btn-sm btn-outline-light">Yeni Hasta Kaydı</a>
+                        </div>
+                    }
                 </div>
             </div>
         </nav>
@@ -45,8 +80,8 @@
 
     <footer class="border-top footer text-muted bg-white mt-5 py-3">
         <div class="container d-flex justify-content-between">
-            <span>&copy; 2026 - Hastane/Klinik Randevu Sistemi (Yüksek Lisans NDP Projesi)</span>
-            <span>Core &bull; DataAccess (SQLite) &bull; Business &bull; WebUI (MVC)</span>
+            <span>&copy; 2026 - Marmara Medikal Sağlık Grubu | Online Randevu ve Hastane Yönetim Sistemi</span>
+            <span>7/24 Çağrı Merkezi: 0264 555 00 00</span>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
