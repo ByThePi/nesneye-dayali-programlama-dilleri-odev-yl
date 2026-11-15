@@ -113,14 +113,15 @@ classDiagram
 | **Doktor Uygunluk Zaman Dilimleri** | `CalisanUygunluk.ZamanDilimiAyarla()`, `ZamanDilimiUygunMu()` |
 | **Randevu Çakışma Kontrolü** | `Randevu.ZamanCakisiyorMu()`, `RandevuService.RandevuOlusturAsync()` |
 | **Randevu Onay / Red / Tamamlama Mekanizması** | `Randevu.Onayla()`, `Randevu.Reddet()`, `Randevu.Tamamla()`, `Randevu.IptalEt()` |
-| **En Az 3 Kullanıcı Rolü (Polimorfik Yetki)** | `Hasta`, `Doktor`, `SaglikPersoneli`, `KurumYoneticisi` (`Kullanici` soyut sınıfı) |
+| **Kullanıcı Rolleri ve Şube Bazlı İzolasyon** | `SistemYoneticisi`, `KurumYoneticisi`, `Doktor`, `SaglikPersoneli`, `Hasta` (`Kullanici` soyut sınıfı) |
 
 ---
 
-## 4. Detaylı Mimari ve Sunum Rehberi
+## 4. Detaylı Proje Raporu
 
-Katman bağımlılık şeması, randevu durum geçiş diyagramı (`State Diagram`), randevu çakışma kontrolü sıralama diyagramı (`Sequence Diagram`), SOLID/Design Pattern açıklamaları ve canlı sunum adımları için:
-- **[Mimari Tasarım, OOP İlkeleri ve Sunum Rehberi (`docs/MIMARI_VE_SUNUM_REHBERI.md`)](docs/MIMARI_VE_SUNUM_REHBERI.md)**
+Projenin özeti, amacı, kullanılan teknolojiler, TPT veritabanı tasarımı, 4 katmanlı OOP mimarisi, uygulama modülleri ve karşılaşılan teknik sorunların çözümlerini içeren kapsamlı akademik proje raporu için:
+- **[Nesneye Dayalı Programlama Dilleri Proje Raporu - PDF (`docs/PROJE_RAPORU.pdf`)](docs/PROJE_RAPORU.pdf)**
+- **[Nesneye Dayalı Programlama Dilleri Proje Raporu - Markdown (`docs/PROJE_RAPORU.md`)](docs/PROJE_RAPORU.md)**
 
 ---
 
