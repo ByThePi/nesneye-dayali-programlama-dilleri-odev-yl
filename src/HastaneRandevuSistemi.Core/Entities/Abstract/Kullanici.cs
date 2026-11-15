@@ -3,8 +3,7 @@ using HastaneRandevuSistemi.Core.Enums;
 namespace HastaneRandevuSistemi.Core.Entities.Abstract
 {
     /// <summary>
-    /// Sistemdeki tüm kullanıcı rolleri (Hasta, Doktor, Sağlık Personeli, Kurum Yöneticisi) için
-    /// kalıtım ve çok biçimlilik (Inheritance & Polymorphism) sağlayan soyut temel sınıf.
+    /// Sistemdeki tüm kullanıcı rolleri için ortak soyut temel sınıf.
     /// </summary>
     public abstract class Kullanici : BaseEntity
     {
@@ -17,19 +16,27 @@ namespace HastaneRandevuSistemi.Core.Entities.Abstract
 
         public string TamAd => $"{Ad} {Soyad}".Trim();
 
-        /// <summary>
-        /// Çok biçimli (Polymorphic) kullanıcı özeti metodu. Alt sınıflar kendi rolüne göre ezer (override).
-        /// </summary>
         public abstract string KullaniciOzetiGetir();
 
         /// <summary>
-        /// Kullanıcının randevu onaylama/reddetme yetkisi olup olmadığını döner (Polymorphism).
+        /// Kullanıcının randevu onaylama/reddetme yetkisi olup olmadığını döner.
         /// </summary>
         public virtual bool RandevuOnaylayabilirMi() => false;
 
         /// <summary>
-        /// Kullanıcının hastane/klinik ve hizmet tanımlama yetkisi olup olmadığını döner (Polymorphism).
+        /// Kullanıcının hastane/şube içi bölüm, hizmet ve çalışan tanımlama yetkisi olup olmadığını döner.
         /// </summary>
         public virtual bool KurumTanimlayabilirMi() => false;
+
+        /// <summary>
+        /// Kullanıcının sisteme yeni bir hastane/klinik şubesi ve şube yöneticisi tanımlama yetkisi olup olmadığını döner.
+        /// Yalnızca Sistem Yöneticisi (Ana Admin) bu yetkiye sahiptir.
+        /// </summary>
+        public virtual bool SubeTanimlayabilirMi() => false;
+
+        /// <summary>
+        /// Kullanıcının belirtilen hastane şubesi üzerinde yönetim yetkisi olup olmadığını kontrol eder.
+        /// </summary>
+        public virtual bool SubeYonetimYetkisiVarMi(int hastaneSubeId) => false;
     }
 }

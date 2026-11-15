@@ -73,10 +73,6 @@ namespace HastaneRandevuSistemi.Core.Entities
             GuncellemeTarihiniAyarla();
         }
 
-        /// <summary>
-        /// Verilen tarih ve saat aralığı ile bu randevunun çakışıp çakışmadığını kontrol eder.
-        /// İptal edilen veya reddedilen randevular çakışma yaratmaz.
-        /// </summary>
         public bool ZamanCakisiyorMu(DateTime tarih, TimeSpan talepBaslangic, TimeSpan talepBitis)
         {
             if (!AktifMi || Durum == RandevuDurumu.IptalEdildi || Durum == RandevuDurumu.Reddedildi)
@@ -92,20 +88,9 @@ namespace HastaneRandevuSistemi.Core.Entities
             return talepBaslangic < BitisSaati && talepBitis > BaslangicSaati;
         }
 
-        /// <summary>
-        /// Çok biçimli (Polymorphic) yetki kontrolü ile randevuyu onaylar.
-        /// </summary>
         public void Onayla(Kullanici islemYapan, string? onayNotu = null)
         {
-            if (!islemYapan.RandevuOnaylayabilirMi())
-            {
-                throw new YetkisizIslemException($"{islemYapan.TamAd} ({islemYapan.Rol}) randevu onaylama yetkisine sahip değildir.");
-            }
-
-            if (islemYapan is Doktor && islemYapan.Id != DoktorId)
-            {
-                throw new YetkisizIslemException("Bir doktor yalnızca kendisine ait randevuları onaylayabilir.");
-            }
+            RandevuIslemYetkisiDogrula(islemYapan, "onaylama");
 
             if (Durum != RandevuDurumu.OnayBekliyor)
             {
@@ -115,7 +100,7 @@ namespace HastaneRandevuSistemi.Core.Entities
             Durum = RandevuDurumu.Onaylandi;
             OnaylayanKullaniciId = islemYapan.Id;
             OnayNotu = string.IsNullOrWhiteSpace(onayNotu)
-                ? $"{islemYapan.TamAd} ({islemYapan.Rol}) tarafından onaylandı."
+                ? $"{islemYapan.TamAd} tarafından onaylandı."
                 : onayNotu.Trim();
             OnayTarihi = DateTime.UtcNow;
             GuncellemeTarihiniAyarla();
@@ -123,15 +108,7 @@ namespace HastaneRandevuSistemi.Core.Entities
 
         public void Reddet(Kullanici islemYapan, string redSebebi)
         {
-            if (!islemYapan.RandevuOnaylayabilirMi())
-            {
-                throw new YetkisizIslemException($"{islemYapan.TamAd} ({islemYapan.Rol}) randevu reddetme yetkisine sahip değildir.");
-            }
-
-            if (islemYapan is Doktor && islemYapan.Id != DoktorId)
-            {
-                throw new YetkisizIslemException("Bir doktor yalnızca kendisine ait randevuları reddedebilir.");
-            }
+            RandevuIslemYetkisiDogrula(islemYapan, "reddetme");
 
             if (Durum != RandevuDurumu.OnayBekliyor)
             {
@@ -150,20 +127,9 @@ namespace HastaneRandevuSistemi.Core.Entities
             GuncellemeTarihiniAyarla();
         }
 
-        /// <summary>
-        /// Onaylanmış bir randevuyu muayene/işlem sonrasında tamamlandı durumuna geçirir.
-        /// </summary>
         public void Tamamla(Kullanici islemYapan, string? muayeneSonucNotu = null)
         {
-            if (!islemYapan.RandevuOnaylayabilirMi())
-            {
-                throw new YetkisizIslemException($"{islemYapan.TamAd} ({islemYapan.Rol}) randevu tamamlama yetkisine sahip değildir.");
-            }
-
-            if (islemYapan is Doktor && islemYapan.Id != DoktorId)
-            {
-                throw new YetkisizIslemException("Bir doktor yalnızca kendisine ait randevunun muayenesini tamamlayabilir.");
-            }
+            RandevuIslemYetkisiDogrula(islemYapan, "tamamlama");
 
             if (Durum != RandevuDurumu.Onaylandi)
             {
@@ -195,6 +161,29 @@ namespace HastaneRandevuSistemi.Core.Entities
                 ? "Hasta talebiyle iptal edildi."
                 : iptalSebebi.Trim();
             GuncellemeTarihiniAyarla();
+        }
+
+        private void RandevuIslemYetkisiDogrula(Kullanici islemYapan, string islemAdi)
+        {
+            if (!islemYapan.RandevuOnaylayabilirMi())
+            {
+                throw new YetkisizIslemException($"{islemYapan.TamAd} randevu {islemAdi} yetkisine sahip değildir.");
+            }
+
+            if (islemYapan is Doktor && islemYapan.Id != DoktorId)
+            {
+                throw new YetkisizIslemException($"Bir doktor yalnızca kendisine ait randevular üzerinde {islemAdi} işlemi yapabilir.");
+            }
+
+            if (islemYapan is SaglikPersoneli personel && personel.HastaneSubeId != HastaneSubeId)
+            {
+                throw new YetkisizIslemException($"Sağlık personeli yalnızca kendi görev yaptığı hastanedeki randevular üzerinde {islemAdi} işlemi yapabilir.");
+            }
+
+            if (islemYapan is KurumYoneticisi yonetici && !yonetici.SubeYonetimYetkisiVarMi(HastaneSubeId))
+            {
+                throw new YetkisizIslemException($"Hastane yöneticisi yalnızca kendi sorumlu olduğu şubedeki randevular üzerinde {islemAdi} işlemi yapabilir.");
+            }
         }
     }
 }

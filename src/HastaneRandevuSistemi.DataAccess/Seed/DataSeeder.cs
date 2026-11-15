@@ -11,6 +11,17 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
         {
             await context.Database.EnsureCreatedAsync();
 
+            try
+            {
+                // Şema güncellendiyse (ör: SistemYoneticileri tablosu yoksa) veritabanını temiz şemayla yeniden oluştur
+                _ = await context.SistemYoneticileri.AnyAsync();
+            }
+            catch
+            {
+                await context.Database.EnsureDeletedAsync();
+                await context.Database.EnsureCreatedAsync();
+            }
+
             if (await context.SaglikKurumlari.AnyAsync())
             {
                 return;
@@ -28,7 +39,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
             context.SaglikKurumlari.Add(kurum);
             await context.SaveChangesAsync();
 
-            // 2. Şubeler (Merkez Hastane ve Şube Poliklinik)
+            // 2. Şubeler (A Hastanesi: Sakarya Merkez Hastanesi, B Hastanesi: Kadıköy İhtisas Kliniği)
             var merkezSube = new HastaneSube
             {
                 SaglikKurumuId = kurum.Id,
@@ -101,14 +112,14 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
             };
             ekoHizmeti.HizmetBilgileriniAyarla(45, 2400m);
 
-            var mrGorumtuleme = new SaglikHizmeti
+            var mrGoruntuleme = new SaglikHizmeti
             {
                 DepartmanId = radyoloji.Id,
                 HizmetAdi = "Kraniyal (Beyin) MR Görüntüleme",
                 Aciklama = "Yüksek çözünürlüklü manyetik rezonans görüntüleme",
                 HizmetTipi = HizmetTipi.Radyoloji
             };
-            mrGorumtuleme.HizmetBilgileriniAyarla(40, 3200m);
+            mrGoruntuleme.HizmetBilgileriniAyarla(40, 3200m);
 
             var genelCheckup = new SaglikHizmeti
             {
@@ -119,19 +130,40 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
             };
             genelCheckup.HizmetBilgileriniAyarla(30, 1200m);
 
-            context.SaglikHizmetleri.AddRange(ekgMuayene, ekoHizmeti, mrGorumtuleme, genelCheckup);
+            context.SaglikHizmetleri.AddRange(ekgMuayene, ekoHizmeti, mrGoruntuleme, genelCheckup);
             await context.SaveChangesAsync();
 
-            // 5. Kullanıcı Rolleri (Yönetici, Doktorlar, Sağlık Personeli, Hastalar)
-            var yonetici = new KurumYoneticisi
+            // 5. Kullanıcı Rolleri (Sistem Yöneticisi, Şube Yöneticileri, Doktorlar, Sağlık Personeli, Hastalar)
+            var sistemAdmin = new SistemYoneticisi
+            {
+                Ad = "Hakan",
+                Soyad = "Soylu",
+                Email = "admin@marmaramedikal.com",
+                Telefon = "0532 000 00 01",
+                SifreHash = "123456",
+                Unvan = "Genel Merkez Sistem Yöneticisi (Ana Admin)"
+            };
+
+            var merkezYonetici = new KurumYoneticisi
             {
                 Ad = "Selim",
                 Soyad = "Karahan",
                 Email = "selim.karahan@marmaramedikal.com",
                 Telefon = "0532 100 10 10",
-                SifreHash = "DemoHash_Yonetici",
+                SifreHash = "123456",
                 SorumluSubeId = merkezSube.Id,
-                YetkiUnvani = "Başhekim ve Kurum Yöneticisi"
+                YetkiUnvani = "Sakarya Merkez Hastanesi Yöneticisi"
+            };
+
+            var kadikoyYonetici = new KurumYoneticisi
+            {
+                Ad = "Canan",
+                Soyad = "Erdem",
+                Email = "canan.erdem@marmaramedikal.com",
+                Telefon = "0532 100 20 20",
+                SifreHash = "123456",
+                SorumluSubeId = kadikoySube.Id,
+                YetkiUnvani = "Kadıköy İhtisas Kliniği Yöneticisi"
             };
 
             var drAhmet = new Doktor
@@ -140,7 +172,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
                 Soyad = "Yılmaz",
                 Email = "ahmet.yilmaz@marmaramedikal.com",
                 Telefon = "0532 200 20 20",
-                SifreHash = "DemoHash_Doktor1",
+                SifreHash = "123456",
                 HastaneSubeId = merkezSube.Id,
                 DepartmanId = kardiyoloji.Id,
                 SicilNo = "DR-5401",
@@ -155,7 +187,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
                 Soyad = "Kaya",
                 Email = "zeynep.kaya@marmaramedikal.com",
                 Telefon = "0532 300 30 30",
-                SifreHash = "DemoHash_Doktor2",
+                SifreHash = "123456",
                 HastaneSubeId = merkezSube.Id,
                 DepartmanId = radyoloji.Id,
                 SicilNo = "DR-5402",
@@ -170,7 +202,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
                 Soyad = "Demir",
                 Email = "mert.demir@marmaramedikal.com",
                 Telefon = "0532 400 40 40",
-                SifreHash = "DemoHash_Doktor3",
+                SifreHash = "123456",
                 HastaneSubeId = kadikoySube.Id,
                 DepartmanId = dahiliye.Id,
                 SicilNo = "DR-3401",
@@ -185,7 +217,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
                 Soyad = "Aydın",
                 Email = "elif.aydin@marmaramedikal.com",
                 Telefon = "0532 500 50 50",
-                SifreHash = "DemoHash_Personel",
+                SifreHash = "123456",
                 HastaneSubeId = merkezSube.Id,
                 DepartmanId = kardiyoloji.Id,
                 SicilNo = "SP-104",
@@ -200,7 +232,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
                 Soyad = "Öztürk",
                 Email = "ali.ozturk@ornekmail.com",
                 Telefon = "0544 111 22 33",
-                SifreHash = "DemoHash_Hasta1",
+                SifreHash = "123456",
                 TcKimlikNo = "12345678902",
                 DogumTarihi = new DateTime(1988, 5, 14),
                 KanGrubu = "A Rh+",
@@ -213,14 +245,15 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
                 Soyad = "Çelik",
                 Email = "ayse.celik@ornekmail.com",
                 Telefon = "0544 444 55 66",
-                SifreHash = "DemoHash_Hasta2",
+                SifreHash = "123456",
                 TcKimlikNo = "98765432104",
                 DogumTarihi = new DateTime(1995, 11, 23),
                 KanGrubu = "0 Rh+",
                 OzelSigortaVarMi = false
             };
 
-            context.KurumYoneticileri.Add(yonetici);
+            context.SistemYoneticileri.Add(sistemAdmin);
+            context.KurumYoneticileri.AddRange(merkezYonetici, kadikoyYonetici);
             context.Doktorlar.AddRange(drAhmet, drZeynep, drMert);
             context.SaglikPersonelleri.Add(personelElif);
             context.Hastalar.AddRange(hastaAli, hastaAyse);
@@ -230,7 +263,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
             context.DoktorHizmetleri.AddRange(
                 new DoktorHizmet { DoktorId = drAhmet.Id, SaglikHizmetiId = ekgMuayene.Id, OzelUcretFarki = 300m },
                 new DoktorHizmet { DoktorId = drAhmet.Id, SaglikHizmetiId = ekoHizmeti.Id, OzelUcretFarki = 400m },
-                new DoktorHizmet { DoktorId = drZeynep.Id, SaglikHizmetiId = mrGorumtuleme.Id, OzelUcretFarki = 0m },
+                new DoktorHizmet { DoktorId = drZeynep.Id, SaglikHizmetiId = mrGoruntuleme.Id, OzelUcretFarki = 0m },
                 new DoktorHizmet { DoktorId = drMert.Id, SaglikHizmetiId = genelCheckup.Id, OzelUcretFarki = 200m }
             );
 
@@ -259,7 +292,7 @@ namespace HastaneRandevuSistemi.DataAccess.Seed
             }
             await context.SaveChangesAsync();
 
-            // 8. Örnek Randevular (Bir tanesi Onaylandı, bir tanesi Onay Bekliyor)
+            // 8. Örnek Randevular
             DateTime gelecekIsGunu = SonrakiIsGununuGetir(DateTime.Today.AddDays(1));
 
             var randevu1 = new Randevu

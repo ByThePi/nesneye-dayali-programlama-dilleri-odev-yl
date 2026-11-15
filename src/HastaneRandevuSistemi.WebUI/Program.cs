@@ -4,11 +4,11 @@ using HastaneRandevuSistemi.Core.Interfaces;
 using HastaneRandevuSistemi.DataAccess.Context;
 using HastaneRandevuSistemi.DataAccess.Repositories;
 using HastaneRandevuSistemi.DataAccess.Seed;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddControllersWithViews();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -16,6 +16,17 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Hesap/Giris";
+        options.AccessDeniedPath = "/Hesap/ErisimEngellendi";
+        options.Cookie.Name = "HastaneRandevu.Auth";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    });
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped<IRandevuRepository, RandevuRepository>();
@@ -28,14 +39,12 @@ builder.Services.AddScoped<IKurumYonetimService, KurumYonetimService>();
 
 var app = builder.Build();
 
-// Veritabanını otomatik oluştur ve başlangıç verilerini (Seed) yükle
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await DataSeeder.SeedAsync(dbContext);
 }
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -45,6 +54,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

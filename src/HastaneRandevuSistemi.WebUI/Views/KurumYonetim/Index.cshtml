@@ -1,47 +1,30 @@
 @model HastaneRandevuSistemi.WebUI.Models.KurumYonetimSayfaViewModel
 @using HastaneRandevuSistemi.Core.Enums
 @{
-    ViewData["Title"] = "Kurum, Hizmet ve Çalışan Yönetimi";
-    var varsayilanYonetici = Model.Kullanicilar.FirstOrDefault(k => k.KurumTanimlayabilirMi());
+    ViewData["Title"] = Model.KapsamBasligi;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
     <div>
-        <h3 class="fw-bold mb-0">Kurum, Sağlık Hizmeti, Çalışan ve Hasta Yönetim Paneli</h3>
-        <small class="text-muted">Polimorfik <code>KurumTanimlayabilirMi()</code> yetki denetimi ile şube, bölüm, hizmet, doktor, sağlık personeli ve hasta tanımlama</small>
+        <h3 class="fw-bold mb-0">@Model.KapsamBasligi</h3>
+        @if (Model.SistemYoneticisiMi)
+        {
+            <small class="text-muted">Genel Merkez Sistem Yöneticisi olarak yeni hastane şubeleri açabilir, şube yöneticileri atayabilir ve tüm şubeleri yönetebilirsiniz.</small>
+        }
+        else
+        {
+            <small class="text-primary fw-semibold">
+                Yalnızca sorumlu olduğunuz hastane (@Model.Subeler.FirstOrDefault()?.SubeAdi) bünyesindeki poliklinik, hizmet ve çalışanları yönetmektesiniz.
+            </small>
+        }
     </div>
-    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary btn-sm">Ana Panele Dön</a>
-</div>
-
-<!-- Polimorfik Aktif İşlem Yapan Rol Seçici -->
-<div class="card border-0 shadow-sm mb-4 bg-white">
-    <div class="card-body py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div>
-            <span class="fw-bold text-primary">Aktif İşlem Yapan Kullanıcı (Polimorfik Yetki Simülasyonu):</span>
-            <small class="text-muted d-block">Kurum/Çalışan tanımlama formları seçtiğiniz kullanıcının <code>KurumTanimlayabilirMi()</code> yetkisini denetler.</small>
-        </div>
-        <div style="min-width: 340px;">
-            <select id="aktifKullaniciSecici" class="form-select form-select-sm border-primary fw-semibold">
-                @foreach (var k in Model.Kullanicilar)
-                {
-                    if (varsayilanYonetici != null && k.Id == varsayilanYonetici.Id)
-                    {
-                        <option value="@k.Id" selected>@k.TamAd (@k.Rol - @(k.KurumTanimlayabilirMi() ? "Tanım Yetkili" : "Tanım Yetkisiz"))</option>
-                    }
-                    else
-                    {
-                        <option value="@k.Id">@k.TamAd (@k.Rol - @(k.KurumTanimlayabilirMi() ? "Tanım Yetkili" : "Tanım Yetkisiz"))</option>
-                    }
-                }
-            </select>
-        </div>
-    </div>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary btn-sm">Ana Sayfaya Dön</a>
 </div>
 
 @if (TempData["BasariMesaji"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <strong>Başarılı!</strong> @TempData["BasariMesaji"]
+        <strong>İşlem Başarılı!</strong> @TempData["BasariMesaji"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
@@ -49,86 +32,183 @@
 @if (TempData["HataMesaji"] != null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <strong>Yetki / İş Kuralı Uyarısı:</strong> @TempData["HataMesaji"]
+        <strong>Uyarı:</strong> @TempData["HataMesaji"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
 
 <div class="row g-4">
-    <!-- 1. Hastane / Klinik Şubesi Tanımlama -->
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-primary text-white py-3">
-                <h5 class="mb-0">1. Yeni Hastane / Klinik Şubesi Tanımla</h5>
-            </div>
-            <div class="card-body">
-                <form asp-action="SubeEkle" method="post">
-                    <input type="hidden" name="IslemYapanKullaniciId" class="js-islem-yapan" value="@(varsayilanYonetici?.Id ?? 1)" />
+    @if (Model.SistemYoneticisiMi)
+    {
+        <!-- Yalnızca Ana Sistem Yöneticisine (Super Admin) Görünen: Yeni Hastane Şubesi ve Şube Yöneticisi Atama -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100 border-top border-danger border-3">
+                <div class="card-header bg-danger text-white py-3">
+                    <h5 class="mb-0">Genel Merkez: Yeni Hastane / Klinik Şubesi Aç</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="SubeEkle" method="post">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Bağlı Sağlık Kurumu</label>
+                                <select name="SaglikKurumuId" class="form-select form-select-sm" required>
+                                    @foreach (var kurum in Model.Kurumlar)
+                                    {
+                                        <option value="@kurum.Id">@kurum.KurumAdi</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Hastane / Klinik Şube Adı</label>
+                                <input type="text" name="SubeAdi" class="form-control form-control-sm" placeholder="Örn: Kocaeli Bölge Hastanesi" required />
+                            </div>
+                        </div>
 
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Bağlı Sağlık Kurumu</label>
-                            <select name="SaglikKurumuId" class="form-select form-select-sm" required>
-                                @foreach (var kurum in Model.Kurumlar)
-                                {
-                                    <option value="@kurum.Id">@kurum.KurumAdi</option>
-                                }
-                            </select>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Şehir</label>
+                                <input type="text" name="Sehir" class="form-control form-control-sm" placeholder="Örn: Kocaeli" required />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">İlçe</label>
+                                <input type="text" name="Ilce" class="form-control form-control-sm" placeholder="Örn: İzmit" required />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Telefon</label>
+                                <input type="text" name="Telefon" class="form-control form-control-sm" placeholder="0262 444 03 03" required />
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Şube / Klinik Adı</label>
-                            <input type="text" name="SubeAdi" class="form-control form-control-sm" placeholder="Örn: Kocaeli Bölge Polikliniği" required />
-                        </div>
-                    </div>
 
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Şehir</label>
-                            <input type="text" name="Sehir" class="form-control form-control-sm" value="Kocaeli" required />
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Açık Adres</label>
+                                <input type="text" name="Adres" class="form-control form-control-sm" placeholder="Mahalle, Cadde, No..." required />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Açılış Saati</label>
+                                <input type="time" name="AcilisSaati" class="form-control form-control-sm" value="08:30" required />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Kapanış Saati</label>
+                                <input type="time" name="KapanisSaati" class="form-control form-control-sm" value="18:30" required />
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-semibold">İlçe</label>
-                            <input type="text" name="Ilce" class="form-control form-control-sm" value="İzmit" required />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Telefon</label>
-                            <input type="text" name="Telefon" class="form-control form-control-sm" value="0262 444 03 03" required />
-                        </div>
-                    </div>
 
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Adres</label>
-                            <input type="text" name="Adres" class="form-control form-control-sm" placeholder="Açık adres..." required />
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Açılış Saati</label>
-                            <input type="time" name="AcilisSaati" class="form-control form-control-sm" value="08:30" required />
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Kapanış Saati</label>
-                            <input type="time" name="KapanisSaati" class="form-control form-control-sm" value="18:30" required />
-                        </div>
-                    </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 fw-semibold">Yeni Hastane Şubesini Kaydet</button>
+                    </form>
 
-                    <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">Şubeyi ve Çalışma Saatlerini Kaydet</button>
-                </form>
+                    @if (Model.Subeler.Any())
+                    {
+                        <hr class="my-3" />
+                        <h6 class="fw-bold small text-uppercase text-muted mb-2">Mevcut Hastane / Klinik Şubeleri</h6>
+                        <ul class="list-group list-group-flush small">
+                            @foreach (var s in Model.Subeler)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
+                                    <div>
+                                        <span class="fw-semibold">@s.SubeAdi</span>
+                                        <span class="text-muted">(@s.Ilce / @s.Sehir)</span>
+                                    </div>
+                                    <form asp-action="SubeKaldir" method="post" class="d-inline">
+                                        <input type="hidden" name="subeId" value="@s.Id" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">Şubeyi Kaldır</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- 2. Bölüm (Departman) ve Sağlık Hizmeti Tanımlama -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100 border-top border-primary border-3">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0">Genel Merkez: Hastane Şubesine Yönetici Ata</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="SubeYoneticisiEkle" method="post">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-12">
+                                <label class="form-label small fw-semibold">Sorumlu Olacağı Hastane / Klinik Şubesi</label>
+                                <select name="HastaneSubeId" class="form-select form-select-sm" required>
+                                    @foreach (var s in Model.Subeler)
+                                    {
+                                        <option value="@s.Id">@s.SubeAdi (@s.Sehir)</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Yönetici Adı</label>
+                                <input type="text" name="Ad" class="form-control form-control-sm" placeholder="Ad" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Yönetici Soyadı</label>
+                                <input type="text" name="Soyad" class="form-control form-control-sm" placeholder="Soyad" required />
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-semibold">Kurumsal E-Posta (Giriş İçin)</label>
+                                <input type="email" name="Email" class="form-control form-control-sm" placeholder="yonetici@marmaramedikal.com" required />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Telefon</label>
+                                <input type="text" name="Telefon" class="form-control form-control-sm" placeholder="0532 XXX XX XX" required />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Giriş Şifresi</label>
+                                <input type="text" name="Sifre" class="form-control form-control-sm" value="123456" required />
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">Şube Yöneticisini Kaydet ve Ata</button>
+                    </form>
+
+                    @if (Model.SubeYoneticileri.Any())
+                    {
+                        <hr class="my-3" />
+                        <h6 class="fw-bold small text-uppercase text-muted mb-2">Atanmış Şube Yöneticileri ve Yetki Kaldırma</h6>
+                        <ul class="list-group list-group-flush small">
+                            @foreach (var y in Model.SubeYoneticileri)
+                            {
+                                var atananSubeAdi = Model.Subeler.FirstOrDefault(s => s.Id == y.SorumluSubeId)?.SubeAdi ?? y.YetkiUnvani;
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
+                                    <div>
+                                        <span class="fw-semibold">@y.TamAd</span>
+                                        <span class="badge bg-primary-subtle text-primary ms-1">@atananSubeAdi</span>
+                                        <br />
+                                        <small class="text-muted">@y.Email</small>
+                                    </div>
+                                    <form asp-action="SubeYoneticisiYetkiKaldir" method="post" class="d-inline">
+                                        <input type="hidden" name="yoneticiId" value="@y.Id" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">Yetkiyi Kaldır</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Poliklinik (Bölüm) ve Sağlık Hizmeti Tanımlama -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-success text-white py-3">
-                <h5 class="mb-0">2. Bölüm ve Sağlık Hizmeti (Süre / Ücret) Tanımla</h5>
+                <h5 class="mb-0">Poliklinik (Bölüm) ve Sağlık Hizmeti Tanımlama</h5>
             </div>
             <div class="card-body">
                 <form asp-action="DepartmanEkle" method="post" class="border-bottom pb-3 mb-3">
-                    <input type="hidden" name="IslemYapanKullaniciId" class="js-islem-yapan" value="@(varsayilanYonetici?.Id ?? 1)" />
-                    <h6 class="fw-bold text-success mb-2">A) Şubeye Yeni Bölüm / Poliklinik Ekle</h6>
+                    <h6 class="fw-bold text-success mb-2">A) Hastaneye Yeni Poliklinik / Bölüm Ekle</h6>
                     <div class="row g-2">
                         <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">Hastane Şubesi</label>
                             <select name="HastaneSubeId" class="form-select form-select-sm" required>
                                 @foreach (var s in Model.Subeler)
                                 {
@@ -137,12 +217,14 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <input type="text" name="DepartmanAdi" class="form-control form-control-sm" placeholder="Bölüm Adı (Örn: Göz)" required />
+                            <label class="form-label small fw-semibold mb-1">Poliklinik / Bölüm Adı</label>
+                            <input type="text" name="DepartmanAdi" class="form-control form-control-sm" placeholder="Örn: Göz Hastalıkları" required />
                         </div>
                         <div class="col-md-2">
-                            <input type="text" name="KatBilgisi" class="form-control form-control-sm" placeholder="Kat/Blok" value="2. Kat" required />
+                            <label class="form-label small fw-semibold mb-1">Kat / Blok</label>
+                            <input type="text" name="KatBilgisi" class="form-control form-control-sm" placeholder="Örn: 2. Kat" required />
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-2 d-flex align-items-end">
                             <input type="hidden" name="Aciklama" value="Poliklinik tanı ve tedavi birimi" />
                             <button type="submit" class="btn btn-outline-success btn-sm w-100">Ekle</button>
                         </div>
@@ -150,11 +232,10 @@
                 </form>
 
                 <form asp-action="HizmetEkle" method="post">
-                    <input type="hidden" name="IslemYapanKullaniciId" class="js-islem-yapan" value="@(varsayilanYonetici?.Id ?? 1)" />
-                    <h6 class="fw-bold text-success mb-2">B) Bölüme Yeni Sağlık Hizmeti (Süre ve Ücret) Tanımla</h6>
+                    <h6 class="fw-bold text-success mb-2">B) Polikliniğe Yeni Sağlık Hizmeti (Süre ve Ücret) Tanımla</h6>
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold mb-1">Bağlı Bölüm</label>
+                            <label class="form-label small fw-semibold mb-1">Bağlı Poliklinik / Bölüm</label>
                             <select name="DepartmanId" class="form-select form-select-sm" required>
                                 @foreach (var d in Model.Departmanlar)
                                 {
@@ -163,7 +244,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold mb-1">Hizmet Tipi</label>
+                            <label class="form-label small fw-semibold mb-1">Hizmet Kategorisi</label>
                             <select name="HizmetTipi" class="form-select form-select-sm" required>
                                 @foreach (var tip in Enum.GetValues<HizmetTipi>())
                                 {
@@ -174,13 +255,16 @@
                     </div>
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
-                            <input type="text" name="HizmetAdi" class="form-control form-control-sm" placeholder="Hizmet Adı (Örn: Ultrasonografi)" required />
+                            <label class="form-label small fw-semibold mb-1">Hizmet / İşlem Adı</label>
+                            <input type="text" name="HizmetAdi" class="form-control form-control-sm" placeholder="Örn: Detaylı Göz Muayenesi" required />
                         </div>
                         <div class="col-md-3">
-                            <input type="number" name="SureDakika" class="form-control form-control-sm" value="30" min="5" max="240" placeholder="Süre (dk)" required />
+                            <label class="form-label small fw-semibold mb-1">İşlem Süresi (Dakika)</label>
+                            <input type="number" name="SureDakika" class="form-control form-control-sm" placeholder="Örn: 30" min="5" max="240" required />
                         </div>
                         <div class="col-md-3">
-                            <input type="number" step="0.01" name="TemelUcret" class="form-control form-control-sm" value="1400" min="0" placeholder="Ücret (₺)" required />
+                            <label class="form-label small fw-semibold mb-1">Temel Ücret (₺)</label>
+                            <input type="number" step="0.01" name="TemelUcret" class="form-control form-control-sm" placeholder="Örn: 1500" min="0" required />
                         </div>
                     </div>
                     <input type="hidden" name="Aciklama" value="Kurumsal sağlık hizmeti" />
@@ -190,18 +274,18 @@
         </div>
     </div>
 
-    <!-- 3. Doktor Kaydı ve Doktora Ek Hizmet Tanımlama -->
+    <!-- Doktor Kaydı ve Doktora Ek Hizmet Tanımlama -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-info text-dark py-3">
-                <h5 class="mb-0 fw-bold">3. Doktor Kaydı ve Sunduğu Hizmetleri Tanımlama</h5>
+                <h5 class="mb-0 fw-bold">Doktor Kaydı ve Sunduğu Hizmetleri Eşleştirme</h5>
             </div>
             <div class="card-body">
                 <form asp-action="DoktorEkle" method="post" class="border-bottom pb-3 mb-3">
-                    <input type="hidden" name="IslemYapanKullaniciId" class="js-islem-yapan" value="@(varsayilanYonetici?.Id ?? 1)" />
-                    <h6 class="fw-bold mb-2">A) Yeni Doktor Kaydet</h6>
+                    <h6 class="fw-bold mb-2">A) Hastaneye Yeni Doktor Kaydet</h6>
                     <div class="row g-2 mb-2">
                         <div class="col-md-3">
+                            <label class="form-label small fw-semibold mb-1">Unvan</label>
                             <select name="Unvan" class="form-select form-select-sm">
                                 <option value="Prof. Dr.">Prof. Dr.</option>
                                 <option value="Doç. Dr.">Doç. Dr.</option>
@@ -210,27 +294,33 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <input type="text" name="Ad" class="form-control form-control-sm" placeholder="Ad" required />
+                            <label class="form-label small fw-semibold mb-1">Ad</label>
+                            <input type="text" name="Ad" class="form-control form-control-sm" placeholder="Doktor Adı" required />
                         </div>
                         <div class="col-md-5">
-                            <input type="text" name="Soyad" class="form-control form-control-sm" placeholder="Soyad" required />
+                            <label class="form-label small fw-semibold mb-1">Soyad</label>
+                            <input type="text" name="Soyad" class="form-control form-control-sm" placeholder="Doktor Soyadı" required />
                         </div>
                     </div>
 
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
-                            <input type="text" name="UzmanlikAlani" class="form-control form-control-sm" placeholder="Uzmanlık Alanı" required />
+                            <label class="form-label small fw-semibold mb-1">Uzmanlık Alanı</label>
+                            <input type="text" name="UzmanlikAlani" class="form-control form-control-sm" placeholder="Örn: Kardiyoloji Uzmanı" required />
                         </div>
                         <div class="col-md-3">
-                            <input type="text" name="SicilNo" class="form-control form-control-sm" value="DR-5499" placeholder="Sicil No" required />
+                            <label class="form-label small fw-semibold mb-1">Kurum Sicil No</label>
+                            <input type="text" name="SicilNo" class="form-control form-control-sm" placeholder="Örn: DR-5409" required />
                         </div>
                         <div class="col-md-3">
-                            <input type="text" name="DiplomaNo" class="form-control form-control-sm" value="DIP-2020-101" placeholder="Diploma No" required />
+                            <label class="form-label small fw-semibold mb-1">Diploma No</label>
+                            <input type="text" name="DiplomaNo" class="form-control form-control-sm" placeholder="Örn: DIP-2020" required />
                         </div>
                     </div>
 
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
+                            <label class="form-label small fw-semibold mb-1">Görev Yapacağı Poliklinik</label>
                             <select name="DepartmanId" class="form-select form-select-sm" required>
                                 @foreach (var d in Model.Departmanlar)
                                 {
@@ -239,6 +329,7 @@
                             </select>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label small fw-semibold mb-1">Vereceği Ana Sağlık Hizmeti</label>
                             <select name="SaglikHizmetiId" class="form-select form-select-sm" required>
                                 @foreach (var h in Model.Hizmetler)
                                 {
@@ -250,24 +341,28 @@
 
                     <div class="row g-2 mb-2">
                         <div class="col-md-4">
-                            <input type="number" step="50" name="OzelUcretFarki" class="form-control form-control-sm" value="250" min="0" placeholder="Ek Fark (₺)" required />
+                            <label class="form-label small fw-semibold mb-1">Doktor Ek Fark Ücreti (₺)</label>
+                            <input type="number" step="50" name="OzelUcretFarki" class="form-control form-control-sm" placeholder="Ek ücret (Yoksa 0)" min="0" required />
                         </div>
                         <div class="col-md-4">
-                            <input type="email" name="Email" class="form-control form-control-sm" value="doktor@marmaramedikal.com" required />
+                            <label class="form-label small fw-semibold mb-1">Kurumsal E-Posta</label>
+                            <input type="email" name="Email" class="form-control form-control-sm" placeholder="ad.soyad@marmaramedikal.com" required />
                         </div>
                         <div class="col-md-4">
-                            <input type="text" name="Telefon" class="form-control form-control-sm" value="0532 600 60 60" required />
+                            <label class="form-label small fw-semibold mb-1">Telefon</label>
+                            <input type="text" name="Telefon" class="form-control form-control-sm" placeholder="0532 XXX XX XX" required />
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-info btn-sm w-100 fw-semibold">Doktoru Kaydet</button>
+                    <button type="submit" class="btn btn-info btn-sm w-100 fw-semibold">Yeni Doktoru Kaydet</button>
                 </form>
 
+                <!-- Madde 3 Düzeltmesi: Açıklayıcı Etiketler ve Placeholder -->
                 <form asp-action="DoktoraHizmetEkle" method="post">
-                    <input type="hidden" name="IslemYapanKullaniciId" class="js-islem-yapan" value="@(varsayilanYonetici?.Id ?? 1)" />
                     <h6 class="fw-bold mb-2">B) Mevcut Doktora Ek Sağlık Hizmeti Eşleştir</h6>
-                    <div class="row g-2">
-                        <div class="col-md-5">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">Doktor Seçimi</label>
                             <select name="DoktorId" class="form-select form-select-sm" required>
                                 @foreach (var d in Model.Doktorlar)
                                 {
@@ -276,35 +371,39 @@
                             </select>
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">Tanımlanacak Sağlık Hizmeti</label>
                             <select name="SaglikHizmetiId" class="form-select form-select-sm" required>
                                 @foreach (var h in Model.Hizmetler)
                                 {
-                                    <option value="@h.Id">@h.HizmetAdi (@h.Departman?.DepartmanAdi)</option>
+                                    <option value="@h.Id">@h.HizmetAdi (@h.TemelUcret.ToString("N0") ₺)</option>
                                 }
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">Doktor Ek Fark Ücreti (₺)</label>
                             <div class="input-group input-group-sm">
-                                <input type="number" step="50" name="OzelUcretFarki" class="form-control" value="200" min="0" required />
-                                <button type="submit" class="btn btn-outline-dark">Ekle</button>
+                                <input type="number" step="50" name="OzelUcretFarki" class="form-control"
+                                       placeholder="Ek ücret (₺) - Yoksa 0" min="0" required />
+                                <button type="submit" class="btn btn-dark">Eşleştir</button>
                             </div>
                         </div>
                     </div>
+                    <small class="text-muted d-block mt-1">
+                        * <strong>Doktor Ek Fark Ücreti (₺):</strong> Hizmetin temel ücretine ek olarak doktorun unvan/uzmanlık farkı varsa giriniz (Ek fark yoksa <code>0</code> yazınız).
+                    </small>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- 4. Doktor Uygunluk Zaman Dilimi Tanımlama -->
+    <!-- Doktor Uygunluk Zaman Dilimi Tanımlama -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-dark text-white py-3">
-                <h5 class="mb-0">4. Doktor Uygunluk Zaman Dilimi Tanımla</h5>
+                <h5 class="mb-0">Doktor Poliklinik Çalışma Saatleri ve Uygunluk Takvimi</h5>
             </div>
             <div class="card-body">
                 <form asp-action="UygunlukTanimla" method="post">
-                    <input type="hidden" name="IslemYapanKullaniciId" class="js-islem-yapan" value="@(varsayilanYonetici?.Id ?? 1)" />
-
                     <div class="row g-2 mb-2">
                         <div class="col-md-7">
                             <label class="form-label small fw-semibold">Doktor Seçimi</label>
@@ -316,7 +415,7 @@
                             </select>
                         </div>
                         <div class="col-md-5">
-                            <label class="form-label small fw-semibold">Haftanın Günü</label>
+                            <label class="form-label small fw-semibold">Çalışma Günü</label>
                             <select name="Gun" class="form-select form-select-sm" required>
                                 <option value="Monday">Pazartesi</option>
                                 <option value="Tuesday">Salı</option>
@@ -338,33 +437,32 @@
                             <input type="time" name="BitisSaati" class="form-control form-control-sm" value="17:30" required />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Mola Başlangıç</label>
+                            <label class="form-label small fw-semibold">Öğle Arası Başlangıç</label>
                             <input type="time" name="MolaBaslangic" class="form-control form-control-sm" value="12:30" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Mola Bitiş</label>
+                            <label class="form-label small fw-semibold">Öğle Arası Bitiş</label>
                             <input type="time" name="MolaBitis" class="form-control form-control-sm" value="13:30" />
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-dark btn-sm w-100 fw-semibold">Uygunluk Zaman Dilimini Güncelle / Kaydet</button>
+                    <button type="submit" class="btn btn-dark btn-sm w-100 fw-semibold">Çalışma Saatlerini Kaydet / Güncelle</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- 5. Sağlık Personeli Kaydı -->
+    <!-- Sağlık Personeli Kaydı -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-secondary text-white py-3">
-                <h5 class="mb-0">5. Yeni Sağlık Personeli Kaydı (Hemşire / Teknisyen)</h5>
+                <h5 class="mb-0">Sağlık Personeli Kaydı (Hemşire / Teknisyen)</h5>
             </div>
             <div class="card-body">
                 <form asp-action="SaglikPersoneliEkle" method="post">
-                    <input type="hidden" name="IslemYapanKullaniciId" class="js-islem-yapan" value="@(varsayilanYonetici?.Id ?? 1)" />
                     <div class="row g-2 mb-2">
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Unvan</label>
+                            <label class="form-label small fw-semibold">Görev Unvanı</label>
                             <select name="Unvan" class="form-select form-select-sm">
                                 <option value="Hemşire">Hemşire</option>
                                 <option value="Başhemşire">Başhemşire</option>
@@ -374,17 +472,17 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold">Ad</label>
-                            <input type="text" name="Ad" class="form-control form-control-sm" placeholder="Ad" required />
+                            <input type="text" name="Ad" class="form-control form-control-sm" placeholder="Personel Adı" required />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold">Soyad</label>
-                            <input type="text" name="Soyad" class="form-control form-control-sm" placeholder="Soyad" required />
+                            <input type="text" name="Soyad" class="form-control form-control-sm" placeholder="Personel Soyadı" required />
                         </div>
                     </div>
 
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Görev Yaptığı Bölüm</label>
+                            <label class="form-label small fw-semibold">Görev Yaptığı Poliklinik</label>
                             <select name="DepartmanId" class="form-select form-select-sm" required>
                                 @foreach (var d in Model.Departmanlar)
                                 {
@@ -393,24 +491,24 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Görev Alanı</label>
-                            <input type="text" name="GorevAlani" class="form-control form-control-sm" placeholder="Örn: Poliklinik Hasta Hazırlık & EKG" required />
+                            <label class="form-label small fw-semibold">Görev Tanımı</label>
+                            <input type="text" name="GorevAlani" class="form-control form-control-sm" placeholder="Örn: Hasta Kabul & EKG Hazırlık" required />
                         </div>
                     </div>
 
                     <div class="row g-2 mb-3">
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold">Sicil No</label>
-                            <input type="text" name="SicilNo" class="form-control form-control-sm" value="SP-205" required />
+                            <input type="text" name="SicilNo" class="form-control form-control-sm" placeholder="Örn: SP-205" required />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Vardiya</label>
-                            <input type="text" name="VardiyaBilgisi" class="form-control form-control-sm" value="08:00 - 17:00 (Gündüz)" required />
+                            <label class="form-label small fw-semibold">Çalışma Vardiyası</label>
+                            <input type="text" name="VardiyaBilgisi" class="form-control form-control-sm" placeholder="Örn: 08:00 - 17:00" required />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Telefon</label>
-                            <input type="text" name="Telefon" class="form-control form-control-sm" value="0532 700 70 70" required />
-                            <input type="hidden" name="Email" value="personel@marmaramedikal.com" />
+                            <label class="form-label small fw-semibold">Kurumsal E-Posta</label>
+                            <input type="email" name="Email" class="form-control form-control-sm" placeholder="personel@marmaramedikal.com" required />
+                            <input type="hidden" name="Telefon" value="0532 700 70 70" />
                         </div>
                     </div>
 
@@ -420,80 +518,126 @@
         </div>
     </div>
 
-    <!-- 6. Yeni Hasta Kaydı -->
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-warning text-dark py-3">
-                <h5 class="mb-0 fw-bold">6. Yeni Hasta Kaydı Oluştur</h5>
+    <!-- Mevcut Poliklinikler, Hizmetler, Doktorlar ve Personel Yetki/Kayıt Kaldırma Paneli -->
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0 fw-bold">Kayıtlı Poliklinikler, Hizmetler ve Çalışan Yetkilerini Yönet / Kaldır</h5>
+                    <small class="text-muted">Tanımladığınız bölümleri, sağlık hizmetlerini, doktor-hizmet eşleştirmelerini veya çalışan yetkilerini buradan kaldırabilirsiniz.</small>
+                </div>
             </div>
             <div class="card-body">
-                <form asp-action="HastaEkle" method="post">
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Ad</label>
-                            <input type="text" name="Ad" class="form-control form-control-sm" placeholder="Hasta Adı" required />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Soyad</label>
-                            <input type="text" name="Soyad" class="form-control form-control-sm" placeholder="Hasta Soyadı" required />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-semibold">TC Kimlik No (11 Hane)</label>
-                            <input type="text" name="TcKimlikNo" maxlength="11" minlength="11" class="form-control form-control-sm" placeholder="11122233344" required />
-                        </div>
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Doğum Tarihi</label>
-                            <input type="date" name="DogumTarihi" class="form-control form-control-sm" value="1992-06-15" required />
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Kan Grubu</label>
-                            <select name="KanGrubu" class="form-select form-select-sm">
-                                <option value="A Rh+">A Rh+</option>
-                                <option value="0 Rh+">0 Rh+</option>
-                                <option value="B Rh+">B Rh+</option>
-                                <option value="AB Rh+">AB Rh+</option>
-                                <option value="A Rh-">A Rh-</option>
-                                <option value="0 Rh-">0 Rh-</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Telefon</label>
-                            <input type="text" name="Telefon" class="form-control form-control-sm" value="0544 888 99 00" required />
-                            <input type="hidden" name="Email" value="hasta@ornekmail.com" />
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <div class="form-check mb-1">
-                                <input class="form-check-input" type="checkbox" name="OzelSigortaVarMi" value="true" id="ozelSigortaCheck" />
-                                <label class="form-check-label small fw-semibold" for="ozelSigortaCheck">Özel Sigortalı</label>
+                <div class="row g-4">
+                    <!-- Sol: Poliklinikler ve Sağlık Hizmetleri -->
+                    <div class="col-lg-5">
+                        <h6 class="fw-bold text-success border-bottom pb-2 mb-3">Poliklinikler ve Tanımlı Sağlık Hizmetleri</h6>
+                        @if (!Model.Departmanlar.Any())
+                        {
+                            <div class="text-muted small fst-italic">Kayıtlı poliklinik bulunmamaktadır.</div>
+                        }
+                        @foreach (var dep in Model.Departmanlar)
+                        {
+                            var depHizmetleri = Model.Hizmetler.Where(h => h.DepartmanId == dep.Id).ToList();
+                            <div class="border rounded p-2 mb-2 bg-light">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <div>
+                                        <span class="fw-bold text-dark">@dep.DepartmanAdi</span>
+                                        <small class="text-muted">(@dep.HastaneSube?.SubeAdi - @dep.KatBilgisi)</small>
+                                    </div>
+                                    <form asp-action="DepartmanKaldir" method="post" class="d-inline">
+                                        <input type="hidden" name="departmanId" value="@dep.Id" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">Bölümü Kaldır</button>
+                                    </form>
+                                </div>
+                                @if (depHizmetleri.Any())
+                                {
+                                    <ul class="list-group list-group-flush small mt-1">
+                                        @foreach (var h in depHizmetleri)
+                                        {
+                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-1 py-1">
+                                                <span>@h.HizmetAdi (@h.SureDakika dk - @h.TemelUcret.ToString("N0") ₺)</span>
+                                                <form asp-action="HizmetKaldir" method="post" class="d-inline">
+                                                    <input type="hidden" name="hizmetId" value="@h.Id" />
+                                                    <button type="submit" class="btn btn-link text-danger btn-sm p-0 text-decoration-none">Hizmeti Kaldır</button>
+                                                </form>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
                             </div>
-                        </div>
+                        }
                     </div>
 
-                    <button type="submit" class="btn btn-warning btn-sm w-100 fw-semibold">Hastayı Sisteme Kaydet</button>
-                </form>
+                    <!-- Sağ: Doktorlar, Hizmet Eşleştirmeleri ve Sağlık Personelleri -->
+                    <div class="col-lg-7">
+                        <h6 class="fw-bold text-primary border-bottom pb-2 mb-3">Hekimlerimiz ve Hizmet Eşleştirmeleri</h6>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Hekim</th>
+                                        <th>Poliklinik / Şube</th>
+                                        <th>Eşleştirilen Sağlık Hizmetleri</th>
+                                        <th class="text-end">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var dr in Model.Doktorlar)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@dr.Unvan @dr.TamAd<br /><small class="text-muted">@dr.UzmanlikAlani</small></td>
+                                            <td class="small">@dr.Departman?.DepartmanAdi<br /><span class="text-muted">@dr.HastaneSube?.SubeAdi</span></td>
+                                            <td>
+                                                @foreach (var dh in dr.DoktorHizmetleri)
+                                                {
+                                                    <span class="badge bg-info-subtle text-dark border d-inline-flex align-items-center gap-1 me-1 mb-1">
+                                                        @dh.SaglikHizmeti?.HizmetAdi @(dh.OzelUcretFarki > 0 ? $"(+{dh.OzelUcretFarki:N0}₺)" : "")
+                                                        <form asp-action="DoktorHizmetKaldir" method="post" class="d-inline">
+                                                            <input type="hidden" name="doktorHizmetId" value="@dh.Id" />
+                                                            <button type="submit" class="btn btn-sm p-0 border-0 text-danger fw-bold ms-1" title="Bu hizmet eşleştirmesini kaldır">×</button>
+                                                        </form>
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                <form asp-action="DoktorKaldir" method="post" class="d-inline">
+                                                    <input type="hidden" name="doktorId" value="@dr.Id" />
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">Kaydı Kaldır</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h6 class="fw-bold text-secondary border-bottom pb-2 mb-2">Kayıtlı Sağlık Personelleri</h6>
+                        @if (!Model.SaglikPersonelleri.Any())
+                        {
+                            <div class="text-muted small fst-italic">Kayıtlı sağlık personeli bulunmamaktadır.</div>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush small">
+                                @foreach (var sp in Model.SaglikPersonelleri)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
+                                        <div>
+                                            <span class="fw-semibold">@sp.Unvan @sp.TamAd</span> - @sp.GorevAlani
+                                            <span class="text-muted">(@sp.Departman?.DepartmanAdi / @sp.HastaneSube?.SubeAdi)</span>
+                                        </div>
+                                        <form asp-action="SaglikPersoneliKaldir" method="post" class="d-inline">
+                                            <input type="hidden" name="personelId" value="@sp.Id" />
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">Personeli Kaldır</button>
+                                        </form>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-@section Scripts {
-    <script>
-        (function () {
-            const secici = document.getElementById('aktifKullaniciSecici');
-            const gizliInputlar = document.querySelectorAll('.js-islem-yapan');
-
-            function kullaniciSenkronizeEt() {
-                if (!secici) return;
-                gizliInputlar.forEach(inp => inp.value = secici.value);
-            }
-
-            if (secici) {
-                secici.addEventListener('change', kullaniciSenkronizeEt);
-                kullaniciSenkronizeEt();
-            }
-        })();
-    </script>
-}
